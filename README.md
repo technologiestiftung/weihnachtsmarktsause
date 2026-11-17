@@ -11,6 +11,8 @@ DISCLAIMER: THIS APP WAS PURELY VIBECODED
 Fly Santa's sleigh over as many of Berlin's Christmas markets as you can in
 90 seconds, through a 3D Berlin built entirely from open data.
 
+**Play it:** [weihnachtsmarktsause.vercel.app](https://weihnachtsmarktsause.vercel.app/)
+
 ```bash
 npm install
 npm run dev          # http://localhost:5173
