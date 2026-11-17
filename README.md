@@ -68,7 +68,7 @@ market, in world metres.
 
 ## Scores
 
-The high scores live in a Postgres database (schema`berlin_game`), 
+The high scores live in a Postgres database (schema`weihnachtsmarktsause`), 
 reached only by the small API in `api/`, which holds the
 credentials and checks each run. This API accepts runs for the Sause only.
 
