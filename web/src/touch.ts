@@ -4,9 +4,8 @@ import nipplejs from 'nipplejs';
  * Touch controls for phones and tablets: a virtual joystick on the left
  * (nipplejs) to move, a drag anywhere on the right to look, and a few
  * buttons. They drive the game through the same key codes as the keyboard -
- * the joystick holds W/A/S/D (and Shift when pushed to the edge), a button
- * presses its key - so the sleigh flies the same either way. Pushed to the
- * edge, the stick also holds Shift for the boost, and the knob lights up.
+ * the joystick holds W/A/S/D, a button presses its key - so the sleigh
+ * flies the same either way.
  *
  * Shown when the primary pointer is coarse, i.e. a finger. A laptop with a
  * touch screen keeps its keyboard and mouse UI.
@@ -18,10 +17,7 @@ export function isTouchDevice(): boolean {
 
 /** Joystick deflection past which a direction counts as held. */
 const DEAD = 0.3;
-/** Deflection that boosts: at the edge (force goes past 1 when the thumb does). */
-const SPRINT = 0.9;
 const KNOB = 'rgba(255,180,84,.85)';
-const KNOB_SPRINT = 'rgba(255,214,64,1)';
 /** Radians per pixel of drag; a thumb travels less than a mouse. */
 const LOOK = 2.4;
 
@@ -84,10 +80,6 @@ export class TouchControls {
       this.hold('KeyS', y < -DEAD);
       this.hold('KeyD', x > DEAD);
       this.hold('KeyA', x < -DEAD);
-      const sprint = e.data.force >= SPRINT;
-      this.hold('ShiftLeft', sprint);
-      const knob = e.data.instance.ui?.front;
-      if (knob) knob.style.background = sprint ? KNOB_SPRINT : KNOB;
     });
     stick.on('end', () => this.release());
     // a lost touch (an incoming call, the app switcher) must not leave you running

@@ -37,7 +37,7 @@ const POI_RADIUS = 130;
 const STREET_RADIUS = 170;
 const MAX_POI_SPRITES = 35;
 
-function labelTexture(text: string, colour: string, scale = 1, sub = ''): Label {
+export function labelTexture(text: string, colour: string, scale = 1, sub = ''): Label {
   const pad = 12;
   const font = `600 ${Math.round(30 * scale)}px ui-monospace, Menlo, monospace`;
   const small = `400 ${Math.round(22 * scale)}px ui-monospace, Menlo, monospace`;

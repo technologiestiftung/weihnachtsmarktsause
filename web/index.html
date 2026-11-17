@@ -28,9 +28,6 @@
   #maplabel small { display: block; font-size: 9.5px; color: #c9c6bf; white-space: nowrap; overflow: hidden;
     text-overflow: ellipsis; }
   #maplabel span { display: block; margin-top: 2px; font-size: 8.5px; }
-  #speed { bottom: 12px; right: 12px; text-align: right; font-size: 26px; padding: 6px 14px;
-    font-variant-numeric: tabular-nums; letter-spacing: .02em; }
-  #speed span { font-size: 10px; color: var(--dim); letter-spacing: .1em; }
   #credits { bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 9.5px;
     color: var(--dim); text-align: center; max-width: 60ch; }
   #credits a { color: var(--dim); }
@@ -224,7 +221,7 @@
     pointer-events: none; font-size: 110px; font-weight: 700; color: var(--accent); opacity: 0;
     text-shadow: 0 4px 24px rgba(0,0,0,.6); transition: opacity .2s, transform .3s; }
   #count.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  /* a game shows only what the game needs: its panel, the map and the speed */
+  /* a game shows only what the game needs: its panel and the map */
   body.gaming #stats,
   body.gaming #place { display: none; }
   body.gaming #game { top: 12px; }
@@ -240,7 +237,7 @@
     -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
   #touchButtons button:active { background: rgba(255,180,84,.5); }
-  body.touch #stats, body.touch #speed { display: none; }
+  body.touch #stats { display: none; }
   body.touch #place, body.touch #maplabel { display: none; }
   body.touch #map { width: 110px; height: 110px; }
   body.touch #game { left: 12px; transform: none; min-width: 0; width: calc(100vw - 160px); max-width: 360px; }
@@ -344,7 +341,6 @@
     <div id="gGoal"></div>
     <div id="gCompass"><span id="gArrow">▲</span><span id="gTarget"></span></div>
   </div>
-  <div class="panel" id="speed">0<span> KM/H</span></div>
   <div class="panel" id="credits" data-i18n="credits"></div>
 </div>
 <div id="touch" style="display:none">

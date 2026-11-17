@@ -5,6 +5,7 @@ import { World } from './world';
 import { Player } from './player';
 import { HUD } from './hud';
 import { PoiLayer } from './pois';
+import { SightLayer } from './sights';
 import { skyMaterial } from './materials';
 import { FOG_DAY, FOG_NIGHT, SUN_DIR, installAtmosphere } from './atmosphere';
 import { makeGame, type Game } from './games';
@@ -135,6 +136,7 @@ if (world.manifest.environment) {
 const player = new Player(world);
 const hud = new HUD(world);
 const pois = new PoiLayer(scene, world);
+const sights = new SightLayer(scene, world, hud.overview);
 world.onFull = (tile) => { if (tile.poiFile) void pois.add(tile.key, tile.poiFile); };
 world.onDropFull = (tile) => pois.remove(tile.key);
 
@@ -365,12 +367,13 @@ addEventListener('keydown', (e) => {
       player.camMode = (player.camMode + 1) % 3;
       hud.hint(t(`hint.cam${player.camMode}`));
       break;
-    // Places and street names share one key; the per-category toggles were more
+    // Places, sights and street names share one key; the per-category toggles were more
     // keyboard than the feature was worth.
     case 'KeyT': {
       const on = !(pois.showPois && pois.showStreets);
       pois.showPois = on;
       pois.showStreets = on;
+      sights.visible = on;
       hud.hint(t(on ? 'hint.labelsOn' : 'hint.labelsOff'));
       break;
     }
@@ -496,6 +499,7 @@ function frame(now: number): void {
     if (game.state === 'over') endGame(false);
   }
   pois.update(player.pos.x, player.pos.z);
+  sights.update(player.pos.x, player.pos.z, dt);
   const head = player.applyCamera(camera, dt);
 
   // --- character, sleigh and pose --------------------------------------

@@ -27,10 +27,9 @@ read at build time.
 
 | | |
 |---|---|
-| `W` `S` | faster, slower |
+| `S` | brake (the sleigh always flies at full boost) |
 | `A` `D`, mouse | steer; the mouse also climbs and dives |
 | `Space` `Ctrl` | climb, dive |
-| `Shift` | boost |
 | `C` | camera: third person · close · first person |
 | `G` | shadows on / off |
 | `T` | labels · `M` map: all of Berlin, 10 km, 3 km |

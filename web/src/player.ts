@@ -9,9 +9,7 @@ const PITCH_MAX = 1.15;
 const EYE = 1.72;
 
 // the sleigh, metres per second and metres above the ground
-const SLEIGH_SLOW = 22;
 const SLEIGH_CRUISE = 40;
-const SLEIGH_FAST = 65;
 const SLEIGH_BOOST = 110;
 const SLEIGH_FLOOR = 6;
 const SLEIGH_CEILING = 450;
@@ -35,8 +33,6 @@ export class Player {
   constructor(world: World) {
     this.world = world;
   }
-
-  get speedKmh() { return this.sleighSpeed * 3.6; }
 
   spawn(x: number, z: number): void {
     const w = this.world;
@@ -64,14 +60,12 @@ export class Player {
   }
 
   /**
-   * The sleigh flies like a plane: it never stops, W and S trim the speed,
+   * The sleigh flies like a plane: always at full boost, S holds it back,
    * A/D (or Q/E, or the mouse) bank it round and the view's pitch is its
    * climb. It skims over the ground rather than landing.
    */
   private updateSleigh(dt: number, keys: Set<string>): void {
-    const boost = keys.has('ShiftLeft') || keys.has('ShiftRight');
-    const want = (boost ? SLEIGH_BOOST : keys.has('KeyW') ? SLEIGH_FAST
-      : keys.has('KeyS') ? SLEIGH_SLOW : SLEIGH_CRUISE) * this.speedScale;
+    const want = (keys.has('KeyS') ? SLEIGH_CRUISE : SLEIGH_BOOST) * this.speedScale;
     this.sleighSpeed += (want - this.sleighSpeed) * Math.min(1, dt * 1.6);
     const steer = (keys.has('KeyA') ? 1 : 0) - (keys.has('KeyD') ? 1 : 0) + this.turnInput(keys);
     this.yaw += Math.max(-1, Math.min(1, steer)) * 1.25 * dt;

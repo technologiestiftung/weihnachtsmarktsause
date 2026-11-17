@@ -415,6 +415,7 @@ export class Game {
   /** The targets: every market. */
   prepare(): void {
     this.spots = this.pool;
+    this.host.hud.markets = this.spots;
   }
 
   start(): void {
@@ -449,6 +450,7 @@ export class Game {
     css(el('rush'), 'display', 'none');
     el('pops').replaceChildren();
     this.host.hud.marks = [];
+    this.host.hud.markets = [];
   }
 
   /** One line for the pause screen: time left and points. */
@@ -660,7 +662,7 @@ export class Game {
     return p.pos.y - this.host.world.height(p.pos.x, p.pos.z) < 200;
   }
 
-  /** Shift's boost is the rush. */
+  /** The boost is the rush: full while flying flat out, gone while braking. */
   private rush(): number {
     const p = this.host.player;
     return Math.max(0, Math.min(1, (p.sleighSpeed / p.speedScale - 65) / 45));
