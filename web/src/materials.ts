@@ -18,22 +18,13 @@ export interface GroundTextures {
   coverSize: THREE.Vector2;
   color: Record<GroundKind, THREE.Texture>;
   normal: Record<GroundKind, THREE.Texture>;
-  /** Bridge decks overhead (Decks.footprint): no photo there, it shows the deck. */
-  under?: { map: THREE.Texture; min: THREE.Vector2; size: THREE.Vector2 };
 }
 
-/** Stands in for a tile without bridges. */
+/** Stands in for the street textures where a material has none. */
 const NOTHING_OVERHEAD = new THREE.DataTexture(new Uint8Array(4), 1, 1);
 NOTHING_OVERHEAD.needsUpdate = true;
 
 export type GroundKind = 'asphalt' | 'paving' | 'grass' | 'yard';
-
-/** A true-orthophoto tile draped over one terrain chunk. */
-export interface OrthoTile {
-  map: THREE.Texture;
-  min: THREE.Vector2;
-  size: number;
-}
 
 /** Real-world edge length one texture repeat represents, in metres. These
  *  match OSM2World's standard style for the same materials. */
@@ -62,25 +53,13 @@ const NOISE = /* glsl */`
  * Tiling textures repeat visibly over a city block, so every class is sampled
  * twice - at its true scale and at a larger, rotated one - and the two are
  * mixed by low-frequency noise. Cheap, and it removes the grid.
- *
- * With an orthophoto tile the photograph supplies the colour - real markings,
- * crossings, kerbs and paths. At 20 cm a pixel it turns to mush underfoot, so
- * close to the camera the class textures add their grain back: only their
- * brightness relative to their own average, so the photo's colours survive.
  */
-export function terrainMaterial(t: GroundTextures, ortho?: OrthoTile): THREE.MeshStandardMaterial {
+export function terrainMaterial(t: GroundTextures): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0 });
-  if (ortho) m.defines = { USE_ORTHO: '' };
   const uniforms = {
-    uOrtho: { value: ortho?.map ?? null },
-    uOrthoMin: { value: ortho?.min ?? new THREE.Vector2() },
-    uOrthoSize: { value: ortho?.size ?? 1 },
     uCover: { value: t.cover },
     uCoverMin: { value: t.coverMin },
     uCoverSize: { value: t.coverSize },
-    uUnder: { value: t.under?.map ?? NOTHING_OVERHEAD },
-    uUnderMin: { value: t.under?.min ?? new THREE.Vector2() },
-    uUnderSize: { value: t.under?.size ?? new THREE.Vector2(1, 1) },
     uAsphalt: { value: t.color.asphalt }, uAsphaltN: { value: t.normal.asphalt },
     uPaving: { value: t.color.paving }, uPavingN: { value: t.normal.paving },
     uGrass: { value: t.color.grass }, uGrassN: { value: t.normal.grass },
@@ -103,20 +82,7 @@ export function terrainMaterial(t: GroundTextures, ortho?: OrthoTile): THREE.Mes
         uniform sampler2D uAsphalt, uAsphaltN, uPaving, uPavingN;
         uniform sampler2D uGrass, uGrassN, uYard, uYardN;
         uniform float uTime, uWet;
-        uniform sampler2D uOrtho;
-        uniform vec2 uOrthoMin;
-        uniform float uOrthoSize;
-        uniform sampler2D uUnder;
-        uniform vec2 uUnderMin, uUnderSize;
         ${NOISE}
-        // An aerial photo is not albedo: it already holds the sun and sky of
-        // the survey day. Lit again as if it were bare surface colour it
-        // comes out washed-out white, so it is brought down to the albedo
-        // range of real pavements and roofs and given back some contrast.
-        vec3 photoAlbedo(vec3 c) { return pow(c, vec3(1.18)) * 0.62; }
-        // a texture's mean colour: any coordinate, sampled at its smallest mip
-        vec3 mean(sampler2D t) { return texture2D(t, vec2(0.5), 16.0).rgb; }
-        float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
         vec4 gCover;
         float gVar;
         vec2 rot(vec2 p) { return mat2(0.8, -0.6, 0.6, 0.8) * p; }
@@ -149,33 +115,8 @@ export function terrainMaterial(t: GroundTextures, ortho?: OrthoTile): THREE.Mes
         albedo = mix(albedo, lawn, gCover.b);
         albedo = mix(albedo, tile(uPaving, rot(wxz), ${(TILE_METRES.paving * 0.8).toFixed(2)}) * vec3(0.95, 0.92, 0.86), gCover.g);
         albedo = mix(albedo, tile(uAsphalt, wxz, ${TILE_METRES.asphalt.toFixed(2)}), gCover.r);
-        #ifdef USE_ORTHO
-          vec3 ownAlbedo = albedo;
-          vec3 avg = mean(uYard);
-          avg = mix(avg, mean(uGrass) * vec3(0.48, 0.64, 0.28), gCover.b);
-          avg = mix(avg, mean(uPaving) * vec3(0.95, 0.92, 0.86), gCover.g);
-          avg = mix(avg, mean(uAsphalt), gCover.r);
-          float grain = luma(albedo) / max(luma(avg), 0.02);
-          float near = 1.0 - smoothstep(12.0, 55.0, length(cameraPosition - vWorldPos));
-          vec3 photo = photoAlbedo(texture2D(uOrtho, (wxz - uOrthoMin) / uOrthoSize).rgb);
-          albedo = photo * mix(1.0, clamp(grain, 0.65, 1.35), near * 0.28);
-          // under a bridge the photo shows its deck, cars and all: the
-          // ground there keeps its own material
-          vec2 uuv = (wxz - uUnderMin) / uUnderSize;
-          float under = texture2D(uUnder, uuv).r
-                      * step(0.0, uuv.x) * step(uuv.x, 1.0) * step(0.0, uuv.y) * step(uuv.y, 1.0);
-          albedo = mix(albedo, ownAlbedo, under);
-          // A photo taken from above has nothing to say about a wall: on
-          // embankments, abutments and quay walls it smeared into streaks.
-          // Steep ground gets a plain wall surface instead.
-          vec3 faceN = normalize(cross(dFdx(vWorldPos), dFdy(vWorldPos)));
-          float steep = 1.0 - smoothstep(0.55, 0.8, abs(faceN.y));
-          vec3 wall = vec3(0.30, 0.29, 0.27) * (0.8 + 0.4 * vnoise(vec2(wxz.x + wxz.y, vWorldPos.y) * 0.7));
-          albedo = mix(albedo, wall, steep * 0.85);
-        #else
-          // large-scale grime so streets are not uniformly clean
-          albedo *= 0.86 + 0.22 * vnoise(wxz * 0.11);
-        #endif
+        // large-scale grime so streets are not uniformly clean
+        albedo *= 0.86 + 0.22 * vnoise(wxz * 0.11);
         diffuseColor.rgb *= albedo;
       `)
       .replace('#include <roughnessmap_fragment>', /* glsl */`
@@ -202,19 +143,11 @@ export function terrainMaterial(t: GroundTextures, ortho?: OrthoTile): THREE.Mes
   return m;
 }
 
-/** Bridge tops share the street textures; structure has its own material.
- *  photoMix is zero wherever the aerial survey sees another deck overhead. */
-export function bridgeMaterial(t?: GroundTextures, photo?: OrthoTile): THREE.MeshStandardMaterial {
+/** Bridge tops share the street textures; structure has its own material. */
+export function bridgeMaterial(t?: GroundTextures): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0 });
-  m.defines = { ...(t ? { BRIDGE_GRAIN: '' } : {}), ...(photo ? { BRIDGE_PHOTO: '' } : {}) };
+  m.defines = t ? { BRIDGE_GRAIN: '' } : {};
   const uniforms = {
-    uBridgePhoto: { value: photo?.map ?? NOTHING_OVERHEAD },
-    uBridgeMin: { value: photo?.min ?? new THREE.Vector2() },
-    uBridgeSize: { value: photo?.size ?? 1 },
-    uBridgeDetail: { value: photo?.map ?? NOTHING_OVERHEAD },
-    uBridgeDetailMin: { value: new THREE.Vector2() },
-    uBridgeDetailSize: { value: 1 },
-    uBridgeDetailOn: { value: 0 },
     uBridgeAsphalt: { value: t?.color.asphalt ?? NOTHING_OVERHEAD },
     uBridgePaving: { value: t?.color.paving ?? NOTHING_OVERHEAD },
     uBridgeAsphaltN: { value: t?.normal.asphalt ?? NOTHING_OVERHEAD },
@@ -225,19 +158,17 @@ export function bridgeMaterial(t?: GroundTextures, photo?: OrthoTile): THREE.Mes
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
-        attribute float surfaceType, photoMix;
-        varying float vSurfaceType, vPhotoMix;
+        attribute float surfaceType;
+        varying float vSurfaceType;
         varying vec3 vBridgePos;`)
       .replace('#include <project_vertex>', `#include <project_vertex>
         vBridgePos = (modelMatrix * vec4(transformed, 1.0)).xyz;
-        vSurfaceType = surfaceType; vPhotoMix = photoMix;`);
+        vSurfaceType = surfaceType;`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
-        varying float vSurfaceType, vPhotoMix;
+        varying float vSurfaceType;
         varying vec3 vBridgePos;
-        uniform sampler2D uBridgePhoto, uBridgeDetail, uBridgeAsphalt, uBridgePaving, uBridgeAsphaltN, uBridgePavingN;
-        uniform vec2 uBridgeMin, uBridgeDetailMin;
-        uniform float uBridgeSize, uBridgeDetailSize, uBridgeDetailOn;
+        uniform sampler2D uBridgeAsphalt, uBridgePaving, uBridgeAsphaltN, uBridgePavingN;
         ${NOISE}`)
       .replace('#include <map_fragment>', /* glsl */`
         vec2 bp = vBridgePos.xz;
@@ -249,16 +180,6 @@ export function bridgeMaterial(t?: GroundTextures, photo?: OrthoTile): THREE.Mes
           #ifdef BRIDGE_GRAIN
             base = paving ? texture2D(uBridgePaving, bp).rgb * 0.8
                           : texture2D(uBridgeAsphalt, bp / 1.2).rgb;
-          #endif
-          #ifdef BRIDGE_PHOTO
-            vec2 uv = (bp - uBridgeMin) / uBridgeSize;
-            float inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
-            vec3 aerial = pow(texture2D(uBridgePhoto, uv).rgb, vec3(1.18)) * 0.62;
-            vec2 detailUV = (bp - uBridgeDetailMin) / uBridgeDetailSize;
-            if (uBridgeDetailOn > 0.5 && detailUV.x >= 0.0 && detailUV.y >= 0.0 && detailUV.x <= 1.0 && detailUV.y <= 1.0) {
-              aerial = pow(texture2D(uBridgeDetail, detailUV).rgb, vec3(1.18)) * 0.62;
-            }
-            base = mix(base, aerial, smoothstep(0.1, 0.9, vPhotoMix) * inside);
           #endif
         } else {
           base *= 0.94 + 0.1 * vnoise(vec2(bp.x + bp.y, vBridgePos.y) * 1.7);
@@ -287,50 +208,8 @@ export function bridgeMaterial(t?: GroundTextures, photo?: OrthoTile): THREE.Mes
         #endif
       `);
   };
-  m.customProgramCacheKey = () => `bridge-surfaces:${!!t}:${!!photo}`;
+  m.customProgramCacheKey = () => `bridge-surfaces:${!!t}`;
   return m;
-}
-
-/**
- * Roofs from the orthophoto. Any surface of a building facing upward takes
- * its colour from the photograph instead of OSM2World's roof texture - real
- * tar, gravel, tiles, skylights and solar panels. The photo is a true
- * orthophoto, so roofs sit on their footprints to within about 0.4 m and the
- * lookup is a plain projection of world x/z.
- */
-export function photoRoofs(m: THREE.Material, map: THREE.Texture,
-                           min: THREE.Vector2, size: THREE.Vector2): void {
-  const uniforms = {
-    uRoofPhoto: { value: map }, uRoofMin: { value: min }, uRoofSize: { value: size },
-  };
-  m.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms);
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vRoofPos;\nvarying float vUp;')
-      .replace('#include <defaultnormal_vertex>',
-        '#include <defaultnormal_vertex>\nvUp = normalize(mat3(modelMatrix) * objectNormal).y;')
-      .replace('#include <project_vertex>',
-        '#include <project_vertex>\nvRoofPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', /* glsl */`#include <common>
-        varying vec3 vRoofPos;
-        varying float vUp;
-        uniform sampler2D uRoofPhoto;
-        uniform vec2 uRoofMin, uRoofSize;
-      `)
-      .replace('#include <map_fragment>', /* glsl */`#include <map_fragment>
-        {
-          vec2 ruv = (vRoofPos.xz - uRoofMin) / uRoofSize;
-          float roof = smoothstep(0.5, 0.65, vUp)
-                     * step(0.0, ruv.x) * step(ruv.x, 1.0) * step(0.0, ruv.y) * step(ruv.y, 1.0);
-          // already lit, like the ground photo - see photoAlbedo there
-          vec3 photo = pow(texture2D(uRoofPhoto, ruv).rgb, vec3(1.18)) * 0.62;
-          diffuseColor.rgb = mix(diffuseColor.rgb, photo, roof);
-        }
-      `);
-  };
-  m.customProgramCacheKey = () => 'photo-roofs';
-  m.needsUpdate = true;
 }
 
 /**
@@ -346,11 +225,7 @@ export function photoRoofs(m: THREE.Material, map: THREE.Texture,
 export function litWindows(m: THREE.MeshStandardMaterial): void {
   if (m.userData.litWindows) return;
   m.userData.litWindows = true;
-  // photoRoofs may have got here first; both patches apply
-  const before = m.onBeforeCompile.bind(m);
-  const beforeKey = m.customProgramCacheKey.bind(m);
-  m.onBeforeCompile = (shader, renderer) => {
-    before(shader, renderer);
+  m.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nflat varying vec3 vWinWall;')
       .replace('#include <begin_vertex>', /* glsl */`#include <begin_vertex>
@@ -386,7 +261,7 @@ export function litWindows(m: THREE.MeshStandardMaterial): void {
         #endif
       `);
   };
-  m.customProgramCacheKey = () => `${beforeKey()}:lit-windows`;
+  m.customProgramCacheKey = () => 'lit-windows';
   m.needsUpdate = true;
 }
 
