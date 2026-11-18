@@ -1,3 +1,4 @@
+import './fonts.css';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
@@ -253,8 +254,8 @@ async function choose(c: Choice): Promise<void> {
 }
 
 /** Hold the loading screen until everything around the player has streamed
- *  in - the tiles at the detail their distance asks for and the close
- *  photos - or 30 s have passed, should one never arrive. */
+ *  in - the tiles at the detail their distance asks for - or 30 s have
+ *  passed, should one never arrive. */
 async function cityAround(): Promise<void> {
   const until = performance.now() + 30_000;
   for (;;) {

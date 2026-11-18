@@ -8,7 +8,7 @@
   :root { --ui: #e8e6e1; --dim: #9a978f; --accent: #3fbf6f; }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #0f1116;
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--ui); }
+    font-family: "Clan", sans-serif; color: var(--ui); }
   canvas { display: block; width: 100%; height: 100%; }
   #hud { position: fixed; inset: 0; pointer-events: none; }
   .panel { position: absolute; background: rgba(14,16,21,.72); border: 1px solid rgba(255,255,255,.10);
@@ -69,16 +69,17 @@
   #boot.ready #loading { display: none; }
   #menu { display: none; margin-top: 8px; }
   #boot.ready #menu { display: block; }
-  /* the start menu: three buttons, the first one the game */
+  /* the start menu: three buttons, the first one the game, and a link out to the finder */
   #mainBtns { display: flex; flex-direction: column; gap: 10px; width: min(280px, 100%); margin: 0 auto; }
-  #mainBtns button { pointer-events: auto; background: rgba(29,35,48,.04); color: var(--ui);
+  #mainBtns button, #mainBtns a { pointer-events: auto; background: rgba(29,35,48,.04); color: var(--ui);
     border: 1px solid rgba(29,35,48,.22); border-radius: 8px; padding: 12px 18px; font: inherit;
-    font-size: 14px; letter-spacing: .12em; text-transform: uppercase; cursor: pointer;
+    font-size: 15px; cursor: pointer;
     transition: border-color .15s, transform .15s, background .15s; }
-  #mainBtns button:hover, #mainBtns button:focus-visible { border-color: var(--accent); transform: translateY(-1px);
+  #mainBtns button:hover, #mainBtns button:focus-visible, #mainBtns a:hover, #mainBtns a:focus-visible { border-color: var(--accent); transform: translateY(-1px);
     outline: none; }
   #mainBtns #playBtn { background: var(--accent); border-color: var(--accent); color: #14161c; font-weight: 700;
-    font-size: 17px; padding: 15px 18px; }
+    font-size: 17px; letter-spacing: .12em; text-transform: uppercase; padding: 15px 18px; }
+  #mainBtns #finderBtn { display: block; text-decoration: none; }
   #mainBtns #playBtn:hover, #mainBtns #playBtn:focus-visible { background: #22914f; }
   /* who made it, and the data credits */
   #logos { display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; gap: 14px 32px;
@@ -89,8 +90,9 @@
   #logos img { display: block; height: 36px; width: auto; margin: auto 0; }
   #logos a:first-child img { height: 30px; }
   #logos a:last-child img { height: 44px; }
-  #menuCredits, #menuSrc { font-size: 9px; color: var(--dim); margin: 10px auto 0; max-width: 60ch; line-height: 1.5; }
-  #menuSrc { margin-top: 2px; }
+  #menuCredits, #menuContact { font-size: 9px; color: var(--dim); margin: 10px auto 0; max-width: 60ch; line-height: 1.5; }
+  #menuContact { margin-top: 6px; }
+  #boot h2 a, #menuCredits a, #menuContact a { color: inherit; pointer-events: auto; }
   #result { display: none; margin: 0 auto 18px; max-width: 520px; }
   #result.on { display: block; }
   #result h3 { font-size: 22px; margin: 0 0 6px; letter-spacing: .06em; font-weight: 600; }
@@ -308,9 +310,8 @@
     .pop.big { font-size: 27px; }
     .pop.record { font-size: 22px; }
   }
-  #boot h1 { font-size: 30px; margin: 0 0 4px; letter-spacing: .16em; font-weight: 500; overflow-wrap: anywhere; }
-  #boot h2 { font-size: 11px; margin: 0 0 26px; color: var(--dim); font-weight: 400;
-    letter-spacing: .22em; text-transform: uppercase; }
+  #boot h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: .16em; font-weight: 700; overflow-wrap: anywhere; }
+  #boot h2 { font-size: 14px; margin: 0 0 26px; color: var(--dim); font-weight: 400; }
   #bar { height: 3px; background: rgba(29,35,48,.12); border-radius: 2px; overflow: hidden; }
   #bar div { height: 100%; width: 0%; background: var(--accent); transition: width .18s ease; }
   #bootmsg { font-size: 11px; color: var(--dim); margin-top: 12px; min-height: 1.4em; }
@@ -390,7 +391,7 @@
 <div id="boot"><div class="inner">
   <div id="bootArt"></div>
   <div id="ground">
-  <h1>WEIHNACHTSMARKT-SAUSE</h1><h2 data-i18n="boot.sub">aus offenen Geodaten gebaut</h2>
+  <h1>BERLINER WEIHNACHTSMARKT-SAUSE</h1><h2 data-i18n-html="boot.sub">basierend auf Berlins offenen Weihnachtsmarktdaten</h2>
   <div id="loading">
     <div id="bar"><div></div></div>
     <div id="bootmsg">starte…</div>
@@ -401,6 +402,8 @@
       <button id="playBtn" data-i18n="menu.play">Start</button>
       <button id="scoresBtn" data-i18n="scores.title">Bestenliste</button>
       <button id="settingsBtn" data-i18n="menu.settings">Einstellungen</button>
+      <a id="finderBtn" href="https://weihnachtsmaerkte.odis-berlin.de/?lang=de" target="_blank" rel="noopener"
+        data-i18n="menu.finder">Zum Weihnachtsmarktfinder</a>
     </div>
     <div id="logos">
       <a href="https://odis-berlin.de" target="_blank" rel="noopener"><span data-i18n="menu.madeBy">Umgesetzt von</span>
@@ -410,8 +413,8 @@
       <a href="https://www.berlin.de/rbmskzl/" target="_blank" rel="noopener"><span data-i18n="menu.supportedBy">Gefördert durch</span>
         <img src="https://logos.citylab-berlin.org/logo-berlin-senatskanzelei-de.svg" alt="Senatskanzlei Berlin"></a>
     </div>
-    <div id="menuCredits" data-i18n="credits"></div>
-    <div id="menuSrc"></div>
+    <div id="menuCredits"></div>
+    <div id="menuContact" data-i18n-html="menu.contact"></div>
   </div>
   </div>
 </div></div>

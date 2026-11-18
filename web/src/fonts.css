@@ -1,0 +1,23 @@
+/* Clan, the foundation's typeface, as one family with three weights so the
+   font-weight rules in index.html pick the right cut (600 falls to bold).
+   The files live in public/fonts/. */
+@font-face {
+  font-family: "Clan";
+  src: url('/fonts/clan-book.woff') format("woff");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Clan";
+  src: url('/fonts/clan-medium.woff') format("woff");
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Clan";
+  src: url('/fonts/clan-bold.woff') format("woff");
+  font-weight: 700;
+  font-display: swap;
+}

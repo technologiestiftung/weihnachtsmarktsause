@@ -13,8 +13,8 @@
 export type Lang = 'de' | 'en';
 
 const de = {
-  'page.title': 'Weihnachtsmarkt-Sause',
-  'boot.sub': 'aus offenen Geodaten gebaut',
+  'page.title': 'Berliner Weihnachtsmarkt-Sause',
+  'boot.sub': 'basierend auf Berlins offenen <a href="https://daten.berlin.de/datensaetze/simple_search_wwwberlindesenwebservicemaerktefesteweihnachtsmaerkte" target="_blank" rel="noopener">Weihnachtsmarktdaten</a>',
   'boot.manifest': 'lese Manifest…',
   'boot.textures': 'Bodentexturen',
   'boot.sky': 'Himmelslicht',
@@ -22,7 +22,7 @@ const de = {
   'boot.ready': 'bereit',
   'boot.failed': 'Laden fehlgeschlagen: {e}',
   'credits': 'Gebäude, Straßen © OpenStreetMap-Mitwirkende (ODbL), modelliert mit OSM2World · '
-    + 'Gelände: ALS Berlin · Luftbilder: TrueDOP 2024 · Bäume: Baumbestand Berlin · Bezirke: Geoportal Berlin (dl-de/zero-2.0)',
+    + 'Gelände: ALS Berlin · Bäume: Baumbestand Berlin · Bezirke: Geoportal Berlin (dl-de/zero-2.0)',
   'credits.short': '© OpenStreetMap-Mitwirkende (ODbL) · Geodaten Berlin (dl-de/zero-2.0)',
   'hud.fps': 'fps', 'hud.draws': 'Draws', 'hud.tris': 'Mio. Dreiecke',
   'hud.buildings': 'Gebäude', 'hud.trees': 'Bäume', 'hud.tiles': 'Kacheln',
@@ -44,6 +44,10 @@ const de = {
     + 'Start beginnt am Startpunkt des Tages – derselbe für alle, also vergleichbare Punkte',
   'menu.play': 'Start',
   'menu.settings': 'Einstellungen',
+  'menu.finder': 'Zum Weihnachtsmarktfinder',
+  'menu.sources': 'Datenquellen: <a href="https://daten.berlin.de/datensaetze/simple_search_wwwberlindesenwebservicemaerktefesteweihnachtsmaerkte" target="_blank" rel="noopener">{markets}</a> · {rest}',
+  'menu.contact': 'Den Quellcode der Weihnachtsmarkt-Sause findest du auf <a href="https://github.com/technologiestiftung/weihnachtsmarktsause" target="_blank" rel="noopener">GitHub</a>.<br>'
+    + 'Eine Frage oder Feedback? Schreib uns an <a href="mailto:odis@ts.berlin">odis@ts.berlin</a>',
   'menu.madeBy': 'Umgesetzt von', 'menu.projectBy': 'Ein Projekt der', 'menu.supportedBy': 'Gefördert durch',
   'settings.title': 'Einstellungen',
   'settings.general': 'Allgemein', 'settings.controls': 'Steuerung',
@@ -118,7 +122,7 @@ const de = {
   'mode.markets.title': 'Weihnachtsmarkt-Sause',
   'mode.markets.blurb': 'Flieg mit Santas Schlitten über die Stadt und wirf über möglichst vielen Weihnachtsmärkten Geschenke ab – in {dur}.',
   'mode.markets.controls': 'S bremsen · A D lenken · Maus oder R F steigen',
-  'mode.markets.source': 'Weihnachtsmärkte 2025 · SenWEB, kuratiert von ODIS',
+  'mode.markets.source': 'Weihnachtsmärkte 2025: SenWEB (CC BY)',
   'mode.markets.score': '<b>{n}</b> {n|Weihnachtsmarkt|Weihnachtsmärkte} beschenkt',
   'mode.markets.unit': '{n} {n|Markt|Märkte}',
   'mode.markets.hit': '🎁 Ho ho ho! {name}',
@@ -129,8 +133,8 @@ const de = {
 type Key = keyof typeof de;
 
 const en: Record<Key, string> = {
-  'page.title': 'Weihnachtsmarkt-Sause',
-  'boot.sub': 'built from open geodata',
+  'page.title': 'Berliner Weihnachtsmarkt-Sause',
+  'boot.sub': 'based on Berlin’s open <a href="https://daten.berlin.de/datensaetze/simple_search_wwwberlindesenwebservicemaerktefesteweihnachtsmaerkte" target="_blank" rel="noopener">Christmas market data</a>',
   'boot.manifest': 'reading manifest…',
   'boot.textures': 'ground textures',
   'boot.sky': 'sky lighting',
@@ -138,7 +142,7 @@ const en: Record<Key, string> = {
   'boot.ready': 'ready',
   'boot.failed': 'failed to load: {e}',
   'credits': 'Buildings, streets © OpenStreetMap contributors (ODbL), modelled by OSM2World · '
-    + 'terrain: ALS Berlin · photos: TrueDOP 2024 · trees: Baumbestand Berlin · districts: Geoportal Berlin (dl-de/zero-2.0)',
+    + 'terrain: ALS Berlin · trees: Baumbestand Berlin · districts: Geoportal Berlin (dl-de/zero-2.0)',
   'credits.short': '© OpenStreetMap contributors (ODbL) · Berlin geodata (dl-de/zero-2.0)',
   'hud.fps': 'fps', 'hud.draws': 'draws', 'hud.tris': 'M tris',
   'hud.buildings': 'buildings', 'hud.trees': 'trees', 'hud.tiles': 'tiles',
@@ -160,6 +164,10 @@ const en: Record<Key, string> = {
     + "Start begins at today's starting point — the same for everyone, so scores compare",
   'menu.play': 'Start',
   'menu.settings': 'Settings',
+  'menu.finder': 'Christmas market finder',
+  'menu.sources': 'Data sources: <a href="https://daten.berlin.de/datensaetze/simple_search_wwwberlindesenwebservicemaerktefesteweihnachtsmaerkte" target="_blank" rel="noopener">{markets}</a> · {rest}',
+  'menu.contact': 'The source code of the Weihnachtsmarkt-Sause is on <a href="https://github.com/technologiestiftung/weihnachtsmarktsause" target="_blank" rel="noopener">GitHub</a>.<br>'
+    + 'A question or feedback? Write to us at <a href="mailto:odis@ts.berlin">odis@ts.berlin</a>',
   'menu.madeBy': 'Made by', 'menu.projectBy': 'A project by', 'menu.supportedBy': 'Supported by',
   'settings.title': 'Settings',
   'settings.general': 'General', 'settings.controls': 'Controls',
@@ -234,7 +242,7 @@ const en: Record<Key, string> = {
   'mode.markets.title': 'Christmas Market Dash',
   'mode.markets.blurb': "Fly Santa's sleigh over the city and drop presents on as many Christmas markets as you can in {dur}.",
   'mode.markets.controls': 'S brake · A D steer · mouse or R F climb',
-  'mode.markets.source': 'Weihnachtsmärkte 2025 · SenWEB, curated by ODIS',
+  'mode.markets.source': 'Weihnachtsmärkte 2025: SenWEB (CC BY)',
   'mode.markets.score': '<b>{n}</b> {n|Christmas market|Christmas markets} visited',
   'mode.markets.unit': '{n} {n|market|markets}',
   'mode.markets.hit': '🎁 Ho ho ho! {name}',
