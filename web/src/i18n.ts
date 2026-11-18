@@ -39,13 +39,12 @@ const de = {
   'load.markets': 'Rentiere werden angeschirrt…|Geschenke werden eingepackt…|Glühwein wird vorgewärmt…|Schlittenkufen werden gewachst…',
   'hint.noFair': 'In diesem Build gibt es keinen fairen Start – gespielt wird hier, ohne Wertung',
   'hint.cantStart': 'Start fehlgeschlagen: {e}',
-  'menu.notPlayed': 'heutiger Startpunkt: noch nicht gespielt',
-  'menu.todayBest': 'heute bestes: {n} Punkte',
   'menu.note': 'Ziele kurz hintereinander bauen eine Combo bis ×5 auf und bringen Extrasekunden · '
     + '✨ goldene Ziele zählen dreifach<br>'
     + 'Start beginnt am Startpunkt des Tages – derselbe für alle, also vergleichbare Punkte',
   'menu.play': 'Start',
   'menu.settings': 'Einstellungen',
+  'menu.madeBy': 'Umgesetzt von', 'menu.projectBy': 'Ein Projekt der', 'menu.supportedBy': 'Gefördert durch',
   'settings.title': 'Einstellungen',
   'settings.general': 'Allgemein', 'settings.controls': 'Steuerung',
   'settings.lang': 'Sprache', 'settings.sound': 'Ton',
@@ -156,13 +155,12 @@ const en: Record<Key, string> = {
   'load.markets': 'Harnessing the reindeer…|Wrapping presents…|Warming the Glühwein…|Waxing the sleigh runners…',
   'hint.noFair': 'no fair start in this build — playing where you stand, unranked',
   'hint.cantStart': 'could not start: {e}',
-  'menu.notPlayed': "today's start: not played yet",
-  'menu.todayBest': "today's best: {n} points",
   'menu.note': 'targets in quick succession build a combo up to ×5 and win back seconds · '
     + '✨ golden targets count triple<br>'
     + "Start begins at today's starting point — the same for everyone, so scores compare",
   'menu.play': 'Start',
   'menu.settings': 'Settings',
+  'menu.madeBy': 'Made by', 'menu.projectBy': 'A project by', 'menu.supportedBy': 'Supported by',
   'settings.title': 'Settings',
   'settings.general': 'General', 'settings.controls': 'Controls',
   'settings.lang': 'Language', 'settings.sound': 'Sound',

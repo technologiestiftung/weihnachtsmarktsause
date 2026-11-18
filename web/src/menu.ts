@@ -40,7 +40,6 @@ function linkedCourse(): { id: string; seed: number } | null {
 export class Menu {
   private readonly boot = document.getElementById('boot')!;
   private readonly result = document.getElementById('result')!;
-  private readonly todayBest = document.getElementById('todayBest')!;
   private readonly source = document.getElementById('menuSrc')!;
   private readonly scoreboard = new Scoreboard();
   /** The game last played, whose tab the high scores open on. */
@@ -218,11 +217,8 @@ export class Menu {
     return row;
   }
 
-  /** The lines under the buttons: today's best, and where the markets come from. */
+  /** Where the markets come from, under the other data's credits. */
   private render(): void {
-    const id = MODE_INFO[0].id;
-    const best = bestScore(id, dailySeed());
-    this.todayBest.textContent = best === null ? t('menu.notPlayed') : t('menu.todayBest', { n: num(best, 0) });
-    this.source.textContent = modeText(id, 'source');
+    this.source.textContent = modeText(MODE_INFO[0].id, 'source');
   }
 }

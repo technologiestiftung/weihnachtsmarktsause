@@ -18,7 +18,7 @@ interface Theme {
 }
 
 const THEMES: Record<string, Theme> = {
-  markets: { glow: '#27406e', base: '#070b18', accent: '#f2c14e' },
+  markets: { glow: '#27406e', base: '#070b18', accent: '#3fbf6f' },
 };
 
 export class GameLoader {

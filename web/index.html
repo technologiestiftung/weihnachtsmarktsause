@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>Weihnachtsmarkt-Sause</title>
 <style>
-  :root { --ui: #e8e6e1; --dim: #9a978f; --accent: #ffb454; }
+  :root { --ui: #e8e6e1; --dim: #9a978f; --accent: #3fbf6f; }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #0f1116;
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--ui); }
@@ -31,14 +31,38 @@
   #credits { bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 9.5px;
     color: var(--dim); text-align: center; max-width: 60ch; }
   #credits a { color: var(--dim); }
-  #boot { position: fixed; inset: 0; display: grid; place-items: center; z-index: 20;
-    overflow-y: auto; padding: 24px 0;
-    background: #000; }
+  #boot { position: fixed; inset: 0; display: flex; justify-content: center; z-index: 20;
+    overflow-x: hidden; overflow-y: auto;
+    background: linear-gradient(#020309, #070b16 45%, #0c1222 75%); --art: 220px; }
+  @media (max-height: 760px) { #boot { --art: 160px; } }
+  @media (max-height: 560px) { #boot { --art: 100px; } }
+  /* night above, the text on the snowfield the tree stands in below; the two
+     spacers share what height is left, so the whole stays centred */
+  #boot .inner { position: relative; text-align: center; width: 100%; max-width: 880px; padding: 24px 16px 0;
+    display: flex; flex-direction: column; min-height: 100%; }
+  #boot .inner::before { content: ''; flex: 1 0 0; }
   /* the tree (loadingart.ts) stands over this spacer, above the title */
-  #bootArt { height: 220px; margin-bottom: 14px; }
-  @media (max-height: 760px) { #bootArt { height: 160px; } }
-  @media (max-height: 560px) { #bootArt { height: 100px; } }
-  #boot .inner { position: relative; text-align: center; width: 100%; max-width: 880px; padding: 0 16px; }
+  #bootArt { height: var(--art); flex: none; }
+  /* the snowfield (public/art/near.svg): from the tree's foot, 0.88 of the way down the spacer, to the
+     bottom of the screen, and the full width of it; over the falling snow, which so lands on it. At the
+     foot the tree's shadow and the warm spill of its lights */
+  #ground { --ui: #1d2330; --dim: #5f6675; --accent: #1b7a43; --accent-ink: #1b7a43; color: var(--ui); flex: 1 0 auto;
+    position: relative; display: flex; flex-direction: column;
+    margin: calc(var(--art) * -0.12) calc(50% - 50vw) 0; padding: calc(var(--art) * 0.12 + 14px) calc(50vw - 50%) 24px;
+    background:
+      radial-gradient(calc(var(--art) * 0.3) calc(var(--art) * 0.04) at 50% 0,
+        rgba(52,66,100,.5), rgba(52,66,100,0)),
+      radial-gradient(calc(var(--art) * 0.7) calc(var(--art) * 0.16) at 50% 0,
+        rgba(255,190,120,.3), rgba(255,190,120,0)),
+      url(art/near.svg) 0 0 / 100% calc(var(--art) * 0.45) no-repeat,
+      linear-gradient(transparent calc(var(--art) * 0.45 - 1px), #eef2f8 calc(var(--art) * 0.45 - 1px), #f7f9fc); }
+  #ground::after { content: ''; flex: 1 0 0; }
+  /* behind the tree and the falling snow (public/art/), in the 0.75 art above
+     the foot: a snowy rise on the horizon */
+  #ground::before { content: ''; position: absolute; z-index: -1; left: 0; right: 0; top: calc(var(--art) * -0.75);
+    height: calc(var(--art) * 0.8);
+    background:
+      url(art/mid.svg) 0 calc(var(--art) * 0.6) / 100% calc(var(--art) * 0.6) no-repeat; }
   /* the snow (loadingart.ts), behind whichever screen is up */
   #snow { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   #loading { max-width: 420px; margin: 0 auto; }
@@ -47,30 +71,43 @@
   #boot.ready #menu { display: block; }
   /* the start menu: three buttons, the first one the game */
   #mainBtns { display: flex; flex-direction: column; gap: 10px; width: min(280px, 100%); margin: 0 auto; }
-  #mainBtns button { pointer-events: auto; background: rgba(255,255,255,.07); color: var(--ui);
-    border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 12px 18px; font: inherit;
+  #mainBtns button { pointer-events: auto; background: rgba(29,35,48,.04); color: var(--ui);
+    border: 1px solid rgba(29,35,48,.22); border-radius: 8px; padding: 12px 18px; font: inherit;
     font-size: 14px; letter-spacing: .12em; text-transform: uppercase; cursor: pointer;
     transition: border-color .15s, transform .15s, background .15s; }
   #mainBtns button:hover, #mainBtns button:focus-visible { border-color: var(--accent); transform: translateY(-1px);
     outline: none; }
   #mainBtns #playBtn { background: var(--accent); border-color: var(--accent); color: #14161c; font-weight: 700;
     font-size: 17px; padding: 15px 18px; }
-  #mainBtns #playBtn:hover, #mainBtns #playBtn:focus-visible { background: #ffc477; }
-  #todayBest { color: var(--accent); font-size: 10.5px; margin-top: 12px; }
-  #menuSrc { font-size: 9.5px; color: var(--dim); margin-top: 4px; }
+  #mainBtns #playBtn:hover, #mainBtns #playBtn:focus-visible { background: #22914f; }
+  /* who made it, and the data credits */
+  #logos { display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; gap: 14px 32px;
+    margin: 32px auto 0; }
+  #logos a { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--dim);
+    font-size: 9.5px; text-decoration: none; pointer-events: auto; }
+  /* the labels on one line, each logo centred in the space under its label */
+  #logos img { display: block; height: 36px; width: auto; margin: auto 0; }
+  #logos a:first-child img { height: 30px; }
+  #logos a:last-child img { height: 44px; }
+  #menuCredits, #menuSrc { font-size: 9px; color: var(--dim); margin: 10px auto 0; max-width: 60ch; line-height: 1.5; }
+  #menuSrc { margin-top: 2px; }
   #result { display: none; margin: 0 auto 18px; max-width: 520px; }
   #result.on { display: block; }
   #result h3 { font-size: 22px; margin: 0 0 6px; letter-spacing: .06em; font-weight: 600; }
-  #result .big { font-size: 46px; color: var(--accent); font-weight: 600; line-height: 1.1; }
-  #result p { font-size: 11.5px; color: #c9c6bf; margin: 4px 0; }
-  #result p.rank { color: var(--accent); font-weight: 600; }
+  #result .big { font-size: 46px; color: var(--accent-ink); font-weight: 600; line-height: 1.1; }
+  #result p { font-size: 11.5px; color: #3d4452; margin: 4px 0; }
+  #result p.rank { color: var(--accent-ink); font-weight: 600; }
   #result form.join { margin: 10px auto 0; max-width: 340px; }
-  #result p.short { color: #ffd23f; font-weight: 600; }
+  #result p.short { color: #9a6b00; font-weight: 600; }
   #result p.src { font-size: 9.5px; color: var(--dim); }
   #result .rb { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
   .rb button { pointer-events: auto; background: var(--accent); color: #14161c; border: 0; border-radius: 6px;
     padding: 9px 18px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; letter-spacing: .06em; }
   .rb button.alt { background: rgba(255,255,255,.1); color: var(--ui); }
+  /* on the snow the accent is a deeper green, and the buttons on it white on green */
+  #ground #playBtn, #ground .rb button:not(.alt), #ground form .row button { color: #fff; }
+  #ground .rb button.alt { background: rgba(29,35,48,.08); }
+  #ground form .row input { background: #fff; border-color: rgba(29,35,48,.22); color: var(--ui); }
   /* the high scores and the settings: a box over the menu (or the pause screen), with tabs */
   .modal { position: fixed; inset: 0; z-index: 30; display: none; place-items: center; pointer-events: auto;
     background: rgba(8,10,14,.72); padding: 16px; }
@@ -214,7 +251,7 @@
   #gTarget { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #banner { position: fixed; left: 50%; top: 31%; transform: translate(-50%, -8px); z-index: 6; pointer-events: none;
     font-size: 17px; font-weight: 600; letter-spacing: .03em; background: rgba(14,16,21,.82); padding: 10px 20px;
-    border-radius: 10px; border: 1px solid rgba(255,180,84,.45); opacity: 0; transition: opacity .25s, transform .25s;
+    border-radius: 10px; border: 1px solid rgba(63,191,111,.45); opacity: 0; transition: opacity .25s, transform .25s;
     max-width: calc(100vw - 32px); text-align: center; }
   #banner.on { opacity: 1; transform: translate(-50%, 0); }
   #count { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.6); z-index: 7;
@@ -236,7 +273,7 @@
     background: rgba(14,16,21,.55); color: var(--ui); font-size: 22px; touch-action: none;
     -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-  #touchButtons button:active { background: rgba(255,180,84,.5); }
+  #touchButtons button:active { background: rgba(63,191,111,.5); }
   body.touch #stats { display: none; }
   body.touch #place, body.touch #maplabel { display: none; }
   body.touch #map { width: 110px; height: 110px; }
@@ -274,7 +311,7 @@
   #boot h1 { font-size: 30px; margin: 0 0 4px; letter-spacing: .16em; font-weight: 500; overflow-wrap: anywhere; }
   #boot h2 { font-size: 11px; margin: 0 0 26px; color: var(--dim); font-weight: 400;
     letter-spacing: .22em; text-transform: uppercase; }
-  #bar { height: 3px; background: rgba(255,255,255,.10); border-radius: 2px; overflow: hidden; }
+  #bar { height: 3px; background: rgba(29,35,48,.12); border-radius: 2px; overflow: hidden; }
   #bar div { height: 100%; width: 0%; background: var(--accent); transition: width .18s ease; }
   #bootmsg { font-size: 11px; color: var(--dim); margin-top: 12px; min-height: 1.4em; }
   /* between picking a game and its countdown (loading.ts): covers the city
@@ -352,6 +389,7 @@
 <canvas id="snow"></canvas>
 <div id="boot"><div class="inner">
   <div id="bootArt"></div>
+  <div id="ground">
   <h1>WEIHNACHTSMARKT-SAUSE</h1><h2 data-i18n="boot.sub">aus offenen Geodaten gebaut</h2>
   <div id="loading">
     <div id="bar"><div></div></div>
@@ -364,8 +402,17 @@
       <button id="scoresBtn" data-i18n="scores.title">Bestenliste</button>
       <button id="settingsBtn" data-i18n="menu.settings">Einstellungen</button>
     </div>
-    <div id="todayBest"></div>
+    <div id="logos">
+      <a href="https://odis-berlin.de" target="_blank" rel="noopener"><span data-i18n="menu.madeBy">Umgesetzt von</span>
+        <img src="https://logos.citylab-berlin.org/logo-odis-berlin-coloured.svg" alt="ODIS"></a>
+      <a href="https://www.technologiestiftung-berlin.de/" target="_blank" rel="noopener"><span data-i18n="menu.projectBy">Ein Projekt der</span>
+        <img src="https://logos.citylab-berlin.org/logo-technologiestiftung-berlin-de.svg" alt="Technologiestiftung Berlin"></a>
+      <a href="https://www.berlin.de/rbmskzl/" target="_blank" rel="noopener"><span data-i18n="menu.supportedBy">Gefördert durch</span>
+        <img src="https://logos.citylab-berlin.org/logo-berlin-senatskanzelei-de.svg" alt="Senatskanzlei Berlin"></a>
+    </div>
+    <div id="menuCredits" data-i18n="credits"></div>
     <div id="menuSrc"></div>
+  </div>
   </div>
 </div></div>
 <div id="board" class="modal"></div>

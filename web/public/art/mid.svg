@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 300 1600 600" preserveAspectRatio="none">
+  <!-- the snowy rise on the horizon, behind the start menu's tree and
+       the falling snow (index.html, #ground::before); in the frame of near.svg,
+       whose crest, the tree's foot, is at (800, 450) -->
+  <defs>
+    <linearGradient id="mid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a4560"/><stop offset=".25" stop-color="#29324a"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#mid)" d="M0 392 C180 362 330 368 500 392 S760 404 900 396 S1200 360 1380 380 S1560 400 1600 392 V900 H0Z"/>
+</svg>

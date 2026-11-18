@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 450 1600 450" preserveAspectRatio="none">
+  <!-- the snowfield the start menu's tree stands in, stretched to the screen's
+       width (index.html, #ground); the tree's foot is on its crest at (800, 450) -->
+  <defs>
+    <linearGradient id="near" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#dfe6f1"/><stop offset=".12" stop-color="#cdd6e5"/>
+      <stop offset="1" stop-color="#eef2f8"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#near)" d="M0 488 C220 462 520 452 800 450 S1340 462 1600 494 V900 H0Z"/>
+  <!-- the near field's moonlit rim, and the hollows between drifts -->
+  <path fill="none" stroke="#f4f7fc" stroke-width="1.5" stroke-opacity=".8" vector-effect="non-scaling-stroke"
+    d="M0 488 C220 462 520 452 800 450 S1340 462 1600 494"/>
+  <path fill="#8e9dba" fill-opacity=".22" d="M0 560 C160 520 330 520 470 548 C330 540 170 548 0 600Z"/>
+  <path fill="#8e9dba" fill-opacity=".18" d="M1600 540 C1420 512 1250 520 1120 552 C1270 538 1440 548 1600 590Z"/>
+  <path fill="#8e9dba" fill-opacity=".12" d="M260 700 C520 660 760 672 960 706 C740 690 500 694 260 730Z"/>
+</svg>

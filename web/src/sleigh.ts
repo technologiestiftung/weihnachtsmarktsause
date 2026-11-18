@@ -105,7 +105,7 @@ function reindeer(nose: boolean): THREE.Group {
   return g;
 }
 
-export function makeSleigh(): THREE.Group {
+export function makeSleigh(single = false): THREE.Group {
   const root = new THREE.Group();
   const red = mat(0xd4142a, 0.28, 0.45);
   const green = mat(0x1f8a4c, 0.25, 0.5);
@@ -205,15 +205,16 @@ export function makeSleigh(): THREE.Group {
   lightUp(santa);
   root.add(santa);
   const rein = mat(0x5a3418, 0.2, 0.9);
+  const side = single ? 0.15 : 0.55;
   for (const s of [-1, 1]) {
-    root.add(bar(new THREE.Vector3(0.18 * s, 1.75, 0.95), new THREE.Vector3(0.55 * s, 1.75, 2.9), 0.03, rein));
+    root.add(bar(new THREE.Vector3(0.18 * s, 1.75, 0.95), new THREE.Vector3(side * s, 1.75, 2.9), 0.03, rein));
   }
 
   // two pairs of reindeer on a harness pole, the leader with Rudolph's nose
   const team: THREE.Group[] = [];
   for (const [i, z] of [3.3, 5.3].entries()) {
-    for (const s of [-1, 1]) {
-      const r = reindeer(i === 1 && s === 1);
+    for (const s of single ? [0] : [-1, 1]) {
+      const r = reindeer(i === 1 && s !== -1);
       r.position.set(0.55 * s, 0, z);
       root.add(r);
       team.push(r);

@@ -17,7 +17,7 @@ export function isTouchDevice(): boolean {
 
 /** Joystick deflection past which a direction counts as held. */
 const DEAD = 0.3;
-const KNOB = 'rgba(255,180,84,.85)';
+const KNOB = 'rgba(63,191,111,.85)';
 /** Radians per pixel of drag; a thumb travels less than a mouse. */
 const LOOK = 2.4;
 

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { makeSleigh, poseSleigh } from './sleigh';
 
 /**
  * The start menu's and the loading screen's picture: a small 3D scene -
@@ -16,7 +17,8 @@ interface Art {
   /** How tall the subject is, centred on the origin, and how steeply the
    *  camera looks down on it (radians); the camera backs off to fit it. */
   view: [number, number];
-  update(t: number, dt: number): void;
+  /** wide: half the width in view at the subject, so things can cross it */
+  update(t: number, dt: number, wide: number): void;
 }
 
 /* --- shared bits ----------------------------------------------------------- */
@@ -81,8 +83,9 @@ function tree(): Art {
   const moon = new THREE.DirectionalLight(0xbfd0ff, 1.4);
   moon.position.set(-1, 2, 2);
   scene.add(moon);
-  // everything that stands: the ground's near edge and the star's glow reach
-  // past the tree, so the whole is ~1.3 tall and sits a touch high to centre
+  // the star's glow reaches past the tree, and the view keeps the room the
+  // snow it stood on had, so the whole is ~1.3 tall with the foot 0.88 of the
+  // way down - where the menu's snowfield (index.html, #ground) begins
   const root = new THREE.Group();
   root.position.y = 0.04;
   scene.add(root);
@@ -104,11 +107,6 @@ function tree(): Art {
     new THREE.MeshStandardMaterial({ color: 0x4a2f1c, roughness: 1 }));
   trunk.position.y = -0.47;
   group.add(trunk);
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(0.55, 32),
-    new THREE.MeshStandardMaterial({ color: 0xdfe6f2, roughness: 1 }));
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.y = -0.53;
-  root.add(ground);
 
   // the lights: a spiral round the outside, each twinkling to its own beat
   const N = 72;
@@ -137,7 +135,7 @@ function tree(): Art {
   });
   group.add(new THREE.Points(lights, lit(0.1)), new THREE.Points(lights, lit(0.035)));
 
-  // the star stays facing the camera while the tree turns under it
+  // the star faces the camera
   const shape = new THREE.Shape();
   for (let i = 0; i < 10; i++) {
     const a = Math.PI / 2 + (i * Math.PI) / 5;
@@ -156,11 +154,21 @@ function tree(): Art {
   halo.position.copy(star.position);
   root.add(halo);
 
+  // Santa crossing the sky over the tree from edge to edge of the window, 1 s
+  // in and then 5 s after each pass; with reduced motion, never
+  const sleigh = makeSleigh(true);
+  const len = new THREE.Box3().setFromObject(sleigh).getSize(new THREE.Vector3()).z;
+  sleigh.scale.setScalar(0.7 / len);
+  sleigh.rotation.order = 'YXZ'; // turned to fly +x, then pitched about its own axle
+  sleigh.rotation.y = Math.PI / 2;
+  sleigh.visible = false;
+  scene.add(sleigh);
+  let start = 1;
+
   return {
     scene, view: [1.3, 0.12],
-    update(t, dt) {
-      art.update(t, dt);
-      group.rotation.y += dt * 0.25;
+    update(t, dt, wide) {
+      art.update(t, dt, wide);
       for (let i = 0; i < N; i++) {
         const k = i * 3;
         const b = 0.35 + 0.65 * Math.sin(t * (1.3 + (i % 5) * 0.35) + phase[i]) ** 2;
@@ -170,6 +178,16 @@ function tree(): Art {
       }
       lights.attributes.color.needsUpdate = true;
       halo.material.opacity = 0.6 + 0.15 * Math.sin(t * 1.7);
+      // a little past the edge, for the sleigh's length and its depth behind the tree
+      const edge = wide + 1.2;
+      const p = t - start;
+      if (-edge + p * 1.4 > edge) start = t + 5;
+      sleigh.visible = dt > 0 && t >= start;
+      if (sleigh.visible) {
+        sleigh.position.set(-edge + p * 1.4, 0.56 + Math.sin(p * 1.3) * 0.03, -1);
+        sleigh.rotation.x = -Math.cos(p * 1.3) * 0.05;
+        poseSleigh(sleigh, t);
+      }
     },
   };
 }
@@ -185,6 +203,8 @@ export class LoadingArt {
   private frame = 0;
   private t0 = 0;
   private last = 0;
+  /** Half the width in view at the subject, from the last frame drawn. */
+  private wide = 4;
 
   constructor(private readonly canvas: HTMLCanvasElement) {}
 
@@ -209,7 +229,7 @@ export class LoadingArt {
       const t = (now - this.t0) / 1000;
       const dt = Math.min(0.05, (now - this.last) / 1000);
       this.last = now;
-      this.art.update(still ? 1.2 : t, still ? 0 : dt);
+      this.art.update(still ? 1.2 : t, still ? 0 : dt, this.wide);
       this.draw();
       if (!still) this.frame = requestAnimationFrame(tick);
     };
@@ -248,6 +268,7 @@ export class LoadingArt {
     const [tall, down] = art.view;
     const visible = 2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
     const dist = tall && box.height ? tall / (visible * (box.height / h)) : 8;
+    this.wide = (visible * dist * cam.aspect) / 2;
     cam.position.set(0, Math.sin(down) * dist, Math.cos(down) * dist);
     cam.lookAt(0, 0, 0);
     cam.setViewOffset(w, h, 0, h / 2 - cy, w, h);
