@@ -6,10 +6,10 @@ import { FOG_DAY, SKY_GLSL } from './atmosphere';
  *
  * Everything that sits in the city is a three.js MeshStandardMaterial, so the
  * buildings OSM2World textured, the terrain and the trees all share one
- * physically based lighting model: the same sun, the same shadows, the same
- * fog and tone mapping. The terrain and trees extend the standard material
- * through onBeforeCompile instead of being raw shaders, which is what lets
- * them receive shadows for free.
+ * physically based lighting model: the same sun, the same fog and tone
+ * mapping. The terrain and trees extend the standard material through
+ * onBeforeCompile instead of being raw shaders, which is what lets them keep
+ * three's lighting for free.
  */
 
 export interface GroundTextures {

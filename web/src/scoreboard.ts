@@ -1,13 +1,11 @@
-import { MODE_INFO, dailySeed, modeText } from './games';
-import { lang, num, onLang, t } from './i18n';
+import { MODE_INFO, modeText } from './games';
+import { lang, onLang, t } from './i18n';
 import { cleanName, fetchBoard, playerName, setPlayerName, type Board } from './ranking';
 import { runsOf, stats } from './scores';
 
 /**
- * The high scores, in a box over the start screen: a tab per game, each with
- * today's course on the shared board and your own record in that mode, and
- * above them the name you play under. Medals stay in the game: on a list
- * sorted by what was reached they add nothing.
+ * The high scores, in a box over the start screen: the course on the shared
+ * board and your own record, and above them the name you play under.
  */
 
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ''): HTMLElementTagNameMap[K] {
@@ -19,7 +17,7 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ''
 
 export class Scoreboard {
   private readonly root = document.getElementById('board')!;
-  private tab = MODE_INFO[0].id;
+  private mode = MODE_INFO[0].id;
   private body = h('div', 'tabbody');
   /** Counts the tabs drawn, so a board that arrives late can tell it is stale. */
   private drawn = 0;
@@ -33,13 +31,13 @@ export class Scoreboard {
     onLang(() => { if (this.open) this.render(); });
   }
 
-  /** Open, on a game's tab if given. */
+  /** Open, on a game's board if given. */
   show(mode?: string): void {
-    if (mode && MODE_INFO.some((m) => m.id === mode)) this.tab = mode;
+    if (mode && MODE_INFO.some((m) => m.id === mode)) this.mode = mode;
     this.open = true;
     this.root.classList.add('on');
     this.render();
-    (this.root.querySelector('.tabs .on') as HTMLElement | null)?.focus();
+    (this.root.querySelector('.x') as HTMLElement | null)?.focus();
   }
 
   close(): void {
@@ -60,28 +58,8 @@ export class Scoreboard {
     title.id = 'boardTitle';
     box.setAttribute('aria-labelledby', title.id);
 
-    const tabs = h('div', 'tabs');
-    tabs.setAttribute('role', 'tablist');
-    for (const m of MODE_INFO) {
-      const b = h('button', m.id === this.tab ? 'on' : '');
-      b.setAttribute('role', 'tab');
-      b.setAttribute('aria-selected', String(m.id === this.tab));
-      b.title = modeText(m.id, 'title');
-      b.append(h('span', 'te', m.emoji), h('span', 'tt', modeText(m.id, 'title')));
-      b.addEventListener('click', () => {
-        this.tab = m.id;
-        for (const o of tabs.children) {
-          o.classList.toggle('on', o === b);
-          o.setAttribute('aria-selected', String(o === b));
-        }
-        this.drawTab();
-      });
-      tabs.append(b);
-    }
-
     this.body = h('div', 'tabbody');
-    this.body.setAttribute('role', 'tabpanel');
-    box.append(x, title, this.nameForm(), tabs, this.body, h('p', 'src', t('board.privacy')));
+    box.append(x, title, this.nameForm(), this.body, h('p', 'src', t('board.privacy')));
     this.root.replaceChildren(box);
     this.drawTab();
   }
@@ -121,22 +99,20 @@ export class Scoreboard {
     return form;
   }
 
-  /** The open tab: today's course on the board, then your own numbers. */
+  /** The course on the board, then your own numbers. */
   private drawTab(): void {
-    const mode = this.tab;
-    const today = dailySeed();
+    const mode = this.mode;
     const drawn = ++this.drawn;
-    const date = new Intl.DateTimeFormat(lang === 'de' ? 'de-DE' : 'en-GB', { day: 'numeric', month: 'long' });
     const list = h('div', 'list');
     list.append(h('p', 'dim', t('board.loading')));
-    this.body.replaceChildren(h('p', 'sub', t('board.today', { date: date.format(new Date()) })), list);
+    this.body.replaceChildren(h('p', 'sub', t('board.course')), list);
 
-    fetchBoard(mode, today).then(
+    fetchBoard(mode).then(
       (b) => { if (drawn === this.drawn) list.replaceChildren(...this.boardRows(mode, b)); },
       () => { if (drawn === this.drawn) list.replaceChildren(h('p', 'dim', t('board.offline'))); });
 
     const name = playerName();
-    const s = stats(mode, today, name);
+    const s = stats(mode, name);
     this.body.append(h('p', 'sub', t('board.mine')));
     if (!s.played) {
       this.body.append(h('p', 'dim', t('board.notPlayed')));
@@ -144,21 +120,18 @@ export class Scoreboard {
     }
     this.body.append(h('p', '', [
       t('board.record', { n: modeText(mode, 'unit', { n: s.best!.count }) }),
-      t('board.todayMine', { n: s.today ? modeText(mode, 'unit', { n: s.today.count }) : '–' }),
       t('board.played', { n: s.played }),
     ].join(' · ')));
     const when = new Intl.DateTimeFormat(lang === 'de' ? 'de-DE' : 'en-GB',
                                          { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     const recent = h('div', 'recent');
-    for (const r of runsOf(name).filter((r) => r.mode === mode).slice(-5).reverse()) {
-      recent.append(h('div', '', `${modeText(mode, 'unit', { n: r.count })} · ${t('game.points', { n: num(r.score, 0) })}`
-        + ` · ${when.format(r.at)}`
-        + (r.seed === null ? ` · ${t('scores.unranked')}` : r.seed !== today ? ` · ${t('board.course', { seed: r.seed })}` : '')));
+    for (const r of runsOf(name).filter((r) => r.mode === mode && r.ranked).slice(-5).reverse()) {
+      recent.append(h('div', '', `${modeText(mode, 'unit', { n: r.count })} · ${when.format(r.at)}`));
     }
     this.body.append(recent);
   }
 
-  /** Each player's best: targets in the mode's own words, points small, as they only break ties. */
+  /** Each player's best: targets in the mode's own words. */
   private boardRows(mode: string, b: Board): HTMLElement[] {
     const note = b.local ? [h('p', 'dim', t('board.localNote'))] : [];
     if (!b.top.length) return [h('p', 'dim', t('board.empty')), ...note];
@@ -167,7 +140,7 @@ export class Scoreboard {
     const row = (e: Board['top'][number]) => {
       const tr = h('tr', e.name && e.name.toLowerCase() === me ? 'me' : '');
       tr.append(h('td', 'n', `${e.rank}.`), h('td', 'who', e.name || t('board.noName')),
-                h('td', 'n', modeText(mode, 'unit', { n: e.count })), h('td', 'n pts', num(e.score, 0)));
+                h('td', 'n', modeText(mode, 'unit', { n: e.count })));
       return tr;
     };
     table.append(...b.top.map(row));

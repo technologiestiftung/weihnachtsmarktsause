@@ -197,8 +197,6 @@
   #game { top: 62px; left: 50%; transform: translateX(-50%); min-width: 260px; max-width: calc(100vw - 32px);
     text-align: center; display: none; font-size: 12px; }
   #game.on { display: block; }
-  #game .gt { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
-  #gTitle { font-size: 11px; letter-spacing: .06em; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #gTime { font-size: 22px; font-variant-numeric: tabular-nums; font-weight: 600; }
   #gTime.low { color: #ff6b5b; animation: pulse 1s infinite; }
   @keyframes pulse { 50% { opacity: .45; } }
@@ -208,12 +206,6 @@
   #gPts { display: flex; justify-content: center; align-items: baseline; gap: 8px; margin-top: 2px; }
   #gPoints { font-size: 26px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums;
     line-height: 1.1; }
-  #gMult { font-size: 16px; font-weight: 700; color: #fff; }
-  #gMult[data-n="3"] { color: #ffd23f; }
-  #gMult[data-n="4"] { color: #ff9f43; }
-  #gMult[data-n="5"] { color: #ff5b8a; animation: pulse .6s infinite; }
-  #gCombo { height: 3px; border-radius: 2px; background: rgba(255,255,255,.08); overflow: hidden; margin: 3px 0 5px; }
-  #gCombo div { height: 100%; background: var(--accent); transform-origin: left; transform: scaleX(0); }
   #gGoal { font-size: 10.5px; color: var(--dim); margin-top: 2px; min-height: 1em; }
   #gGoal:empty { display: none; }
   /* points and the like jump up from the middle of the screen */
@@ -222,9 +214,7 @@
   .pop { white-space: nowrap; font-weight: 700; font-size: 18px; color: #fff; line-height: 1.15;
     text-shadow: 0 2px 8px rgba(0,0,0,.7); animation: pop 1.3s ease-out both; }
   .pop.big { font-size: 34px; color: var(--accent); }
-  .pop.gold { color: #ffd23f; }
   .pop.big.gold { font-size: 40px; }
-  .pop.combo { color: #ff9f43; }
   .pop.time { color: #6ee7a0; }
   .pop.dim { color: var(--dim); font-size: 13px; font-weight: 500; }
   .pop.record { font-size: 28px; color: #ffd23f; animation-duration: 2.2s; }
@@ -247,10 +237,10 @@
     -webkit-mask: radial-gradient(ellipse at center, transparent 38%, #000 75%);
     mask: radial-gradient(ellipse at center, transparent 38%, #000 75%);
     animation: rush .25s linear infinite; }
+  body.paused #rush { display: none !important; }
   @keyframes rush { 50% { transform: rotate(2deg) scale(1.03); } }
   #gCompass { display: flex; align-items: center; justify-content: center; gap: 7px; color: #c9c6bf; font-size: 11px; }
-  #gArrow { display: inline-block; color: var(--accent); font-size: 16px; transition: transform .08s linear; }
-  #gTarget { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #gTarget { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #banner { position: fixed; left: 50%; top: 31%; transform: translate(-50%, -8px); z-index: 6; pointer-events: none;
     font-size: 17px; font-weight: 600; letter-spacing: .03em; background: rgba(14,16,21,.82); padding: 10px 20px;
     border-radius: 10px; border: 1px solid rgba(63,191,111,.45); opacity: 0; transition: opacity .25s, transform .25s;
@@ -291,13 +281,10 @@
   /* a phone on its side: little height, so the game panel goes compact */
   @media (max-height: 500px) {
     body.touch #game { width: 270px; padding: 5px 9px; font-size: 10.5px; line-height: 1.35; }
-    body.touch #gTitle { font-size: 9.5px; }
     body.touch #gTime { font-size: 17px; }
     body.touch #gPoints { font-size: 19px; }
-    body.touch #gMult { font-size: 13px; }
     body.touch #gScore b { font-size: 12px; }
     body.touch #gGoal { font-size: 9.5px; }
-    body.touch #gCombo { margin: 2px 0 3px; }
     body.touch #map { width: 88px; height: 88px; }
     #pops { top: 34%; }
     .pop.big { font-size: 24px; }
@@ -328,17 +315,10 @@
   #glArt.none { height: 0; margin: 0; }
   @media (max-height: 860px) { #glArt { height: 180px; } }
   @media (max-height: 660px) { #glArt { height: 120px; } }
-  #glPlay { display: none; }
-  #gameLoading.ready #glTrack { display: none; }
-  #gameLoading.ready #glPlay { display: inline-block; }
-  #glPlay { padding: 14px 44px; border: 0; border-radius: 999px; cursor: pointer;
-    background: var(--gl-accent); color: #160d04; font: 800 18px system-ui, sans-serif; letter-spacing: .01em;
-    box-shadow: 0 10px 28px rgba(0,0,0,.4); animation: glPop .35s ease-out; transition: transform .12s; }
-  #glPlay:hover, #glPlay:focus-visible { transform: scale(1.05); outline: none; }
-  @keyframes glPop { from { transform: scale(.7); opacity: 0; } }
-  #glBack { display: block; margin: 12px auto 0; padding: 4px 8px; border: 0; background: none; cursor: pointer;
-    color: rgba(255,255,255,.55); font: 13px system-ui, sans-serif; }
-  #glBack:hover { color: #fff; text-decoration: underline; }
+  #glBack { display: block; margin: 18px auto 0; padding: 10px 22px; border: 1px solid rgba(255,255,255,.22);
+    border-radius: 8px; background: rgba(255,255,255,.08); cursor: pointer; color: #fff;
+    font: 14px system-ui, sans-serif; transition: background .15s, border-color .15s; }
+  #glBack:hover, #glBack:focus-visible { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.4); outline: none; }
   #glTrack { width: min(320px, 80vw); height: 6px; margin: 0 auto; border-radius: 99px;
     background: rgba(255,255,255,.12); overflow: hidden; }
   #glBar { height: 100%; width: 0; border-radius: inherit; background: var(--gl-accent);
@@ -372,12 +352,11 @@
   <div class="panel" id="mapwrap"><canvas id="map" width="190" height="190"></canvas>
     <div id="maplabel">M — ZOOM</div></div>
   <div class="panel" id="game">
-    <div class="gt"><span id="gTitle"></span><span id="gTime">5:00</span></div>
-    <div id="gPts"><b id="gPoints">0</b><span id="gMult"></span></div>
-    <div id="gCombo"><div></div></div>
+    <div id="gTime">5:00</div>
+    <div id="gPts"><b id="gPoints">0</b></div>
     <div id="gScore"></div>
     <div id="gGoal"></div>
-    <div id="gCompass"><span id="gArrow">▲</span><span id="gTarget"></span></div>
+    <div id="gCompass"><span id="gTarget"></span></div>
   </div>
   <div class="panel" id="credits" data-i18n="credits"></div>
 </div>
@@ -403,7 +382,7 @@
       <button id="scoresBtn" data-i18n="scores.title">Bestenliste</button>
       <button id="settingsBtn" data-i18n="menu.settings">Einstellungen</button>
       <a id="finderBtn" href="https://weihnachtsmaerkte.odis-berlin.de/?lang=de" target="_blank" rel="noopener"
-        data-i18n="menu.finder">Zum Weihnachtsmarktfinder</a>
+        data-i18n="menu.finder">Zum Weihnachtsmarkt-Finder</a>
     </div>
     <div id="logos">
       <a href="https://odis-berlin.de" target="_blank" rel="noopener"><span data-i18n="menu.madeBy">Umgesetzt von</span>
@@ -423,7 +402,6 @@
 <div id="gameLoading"><div class="card">
   <div id="glArt"></div>
   <div id="glTrack"><div id="glBar"></div></div>
-  <button id="glPlay"></button>
   <div id="glLine"></div>
   <button id="glBack"></button>
 </div></div>

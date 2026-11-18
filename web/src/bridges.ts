@@ -285,20 +285,6 @@ export class Decks {
       for (const p of [a, b, c, d]) vertex(p);
       idx.push(k, k + 1, k + 2, k, k + 2, k + 3);
     };
-    const beam = (a: number[], b: number[], width: number, height: number) => {
-      const length = Math.hypot(b[0] - a[0], b[2] - a[2]);
-      if (length < 0.015) return;
-      const nx = -(b[2] - a[2]) / length * width / 2, nz = (b[0] - a[0]) / length * width / 2;
-      const l0 = [a[0] + nx, a[1] + height / 2, a[2] + nz], r0 = [a[0] - nx, a[1] + height / 2, a[2] - nz];
-      const l1 = [b[0] + nx, b[1] + height / 2, b[2] + nz], r1 = [b[0] - nx, b[1] + height / 2, b[2] - nz];
-      const down = (p: number[]) => [p[0], p[1] - height, p[2]];
-      quad(l0, l1, r1, r0);
-      quad(down(l0), down(r0), down(r1), down(l1));
-      quad(l0, down(l0), down(l1), l1);
-      quad(r1, down(r1), down(r0), r0);
-      quad(l0, r0, down(r0), down(l0));
-      quad(r1, l1, down(l1), down(r1));
-    };
     for (const [di, d] of this.decks.entries()) {
       const local = ([x, y, z]: Vertex) => [x - ox, y, z - oz];
       const s = this.surfaces[di];
@@ -329,40 +315,9 @@ export class Decks {
           else quad(r, l, down(l), down(r));
         }
       }
-      if (!(d.assembled || d.k === 'rail') || d.railing === 'no' || d.covered) continue;
-      const first = d.p[0], last = d.p[d.p.length - 1];
-      const span = Math.hypot(last[0] - first[0], last[1] - first[1]) || 1;
-      const dx = d.axis?.[0] ?? (last[0] - first[0]) / span, dz = d.axis?.[1] ?? (last[1] - first[1]) / span;
-      tint = new THREE.Color(d.k === 'rail' ? 0x64716f : 0x788783);
-      type = 4;
-      // Railings follow the surveyed span, not the extra approach aprons.
-      for (const ring of d.mesh?.rails ?? s.rings) {
-        let railRun = 0;
-        for (let i = 0; i < ring.length; i++) {
-          const a = s.vertices[ring[i]], b = s.vertices[ring[(i + 1) % ring.length]];
-          if (this.cutEdge(d, a, b)) continue;
-          const length = Math.hypot(b[0] - a[0], b[2] - a[2]);
-          if (length < 0.015) continue;
-          const along = Math.abs(((b[0] - a[0]) * dx + (b[2] - a[2]) * dz) / length);
-          // End faces are entries, never fenced across. Clip faces likewise.
-          if (along < 0.65) { railRun = 0; continue; }
-          const nx = -(b[2] - a[2]) / length, nz = (b[0] - a[0]) / length;
-          const mx = (a[0] + b[0]) / 2, mz = (a[2] + b[2]) / 2;
-          const insideLeft = this.at(mx + nx * 0.02, mz + nz * 0.02).some((h) => Math.abs(h.y - (a[1] + b[1]) / 2) < 0.1);
-          const l = local(a), r = local(b);
-          const inward = insideLeft ? 0.12 : -0.12;
-          const point = (p: number[], y: number) => [p[0] + nx * inward, p[1] + y, p[2] + nz * inward];
-          beam(point(l, 1.08), point(r, 1.08), 0.065, 0.065);
-          beam(point(l, 0.52), point(r, 0.52), 0.038, 0.038);
-          beam(point(l, 0.08), point(r, 0.08), 0.13, 0.16);
-          for (let distance = Math.ceil(railRun / 2.5) * 2.5 - railRun; distance < length; distance += 2.5) {
-            const f = distance / length;
-            const p = point([l[0] + (r[0] - l[0]) * f, l[1] + (r[1] - l[1]) * f, l[2] + (r[2] - l[2]) * f], 0.54);
-            beam([p[0] - 0.035, p[1], p[2]], [p[0] + 0.035, p[1], p[2]], 0.07, 1.08);
-          }
-          railRun += length;
-        }
-      }
+      // railings were modelled too: posts and three rails each, 12 triangles a
+      // beam - more than the rest of a city's bridges together, and invisible
+      // from the sleigh at night
     }
     // piers and canopy roofs: outlines raised into prisms, top and bottom
     // triangulated, sides as quads
@@ -403,7 +358,6 @@ export class Decks {
     geo.dispose();
     const mat = bridgeMaterial(ground);
     const mesh = new THREE.Mesh(flat, mat);
-    mesh.castShadow = mesh.receiveShadow = true;
     mesh.name = 'bridges';
     return mesh;
   }

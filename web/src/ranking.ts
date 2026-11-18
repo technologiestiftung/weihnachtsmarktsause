@@ -1,4 +1,4 @@
-import { MODE_INFO, dailySeed } from './games';
+import { MODE_INFO } from './games';
 import { better, isSent, markSent, nameRuns, runs, runsOf, type Run } from './scores';
 
 /**
@@ -24,6 +24,8 @@ const TOKENS = 'berlin.players';
 /** From before names had a token each: the one token, of the name then in NAME. */
 const OLD_TOKEN = 'berlin.player';
 const OFFLINE = 'offline';
+/** The board's key for the one start; the API keeps boards by it. */
+const BOARD = 1;
 /** After the board failed to answer, how long to go by this browser alone. */
 const RETRY = 60_000;
 let downUntil = 0;
@@ -33,8 +35,6 @@ export interface Entry {
   /** Empty on a local board for games from before any name was picked. */
   name: string;
   count: number;
-  score: number;
-  medal: number;
 }
 
 export interface Board {
@@ -117,11 +117,11 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
   throw new Error(OFFLINE);
 }
 
-/** The board this browser can make alone: each name's best run on the course here. */
-function localBoard(mode: string, seed: number, name: string | null): Board {
+/** The board this browser can make alone: each name's best ranked run here. */
+function localBoard(mode: string, name: string | null): Board {
   const best = new Map<string, Run>();
   for (const r of runs()) {
-    if (r.mode !== mode || r.seed !== seed) continue;
+    if (r.mode !== mode || !r.ranked) continue;
     const key = r.name?.toLowerCase() ?? '';
     const b = best.get(key);
     if (!b || better(r, b) < 0) best.set(key, r);
@@ -130,7 +130,7 @@ function localBoard(mode: string, seed: number, name: string | null): Board {
   const entries: Entry[] = [];
   for (const [i, r] of list.entries()) {
     const rank = i && !better(r, list[i - 1]) ? entries[i - 1].rank : i + 1;
-    entries.push({ rank, name: r.name ?? '', count: r.count, score: r.score, medal: r.medal });
+    entries.push({ rank, name: r.name ?? '', count: r.count });
   }
   const me = name === null ? undefined : entries.find((e) => e.name.toLowerCase() === name.toLowerCase());
   return { players: entries.length, top: entries.slice(0, 10), me: me ?? null, local: true };
@@ -140,17 +140,17 @@ function localBoard(mode: string, seed: number, name: string | null): Board {
 const cache = new Map<string, { at: number; board: Promise<Board> }>();
 
 /** A course's top ten and where you stand on it; this browser's own without a board. */
-export function fetchBoard(mode: string, seed: number): Promise<Board> {
-  const key = `${mode}:${seed}`;
+export function fetchBoard(mode: string): Promise<Board> {
+  const key = mode;
   const hit = cache.get(key);
   if (hit && performance.now() - hit.at < 20_000) return hit.board;
   const name = playerName();
-  const board = call<Board>(`runs?mode=${mode}&seed=${seed}${name ? `&name=${encodeURIComponent(name)}` : ''}`)
+  const board = call<Board>(`runs?mode=${mode}&seed=${BOARD}${name ? `&name=${encodeURIComponent(name)}` : ''}`)
     .catch((e: Error) => {
       if (e.message !== OFFLINE) throw e;
       // made fresh each time, so the next look asks the board again
       cache.delete(key);
-      return localBoard(mode, seed, name);
+      return localBoard(mode, name);
     });
   cache.set(key, { at: performance.now(), board });
   board.catch(() => cache.delete(key));
@@ -164,25 +164,26 @@ export function fetchBoard(mode: string, seed: number): Promise<Board> {
  */
 async function submitRun(run: Run): Promise<Board> {
   const name = run.name ?? playerName();
-  if (!name || run.seed === null) throw new Error('not ranked');
-  const { mode, seed, score, count, medal, combo } = run;
+  if (!name || !run.ranked) throw new Error('not ranked');
+  const { mode, count } = run;
   let board: Board;
+  // points, medals and combos are gone; the API still takes the fields
   try {
-    board = await call<Board>('runs', { token: token(name), name, run: { mode, seed, score, count, medal, combo } });
+    board = await call<Board>('runs', { token: token(name), name,
+                                        run: { mode, seed: BOARD, count, score: 0, medal: 0, combo: 0 } });
   } catch (e) {
-    if ((e as Error).message === OFFLINE) return localBoard(mode, seed, name);
+    if ((e as Error).message === OFFLINE) return localBoard(mode, name);
     throw e;
   }
   markSent(run.at);
-  cache.set(`${mode}:${seed}`, { at: performance.now(), board: Promise.resolve(board) });
+  cache.set(mode, { at: performance.now(), board: Promise.resolve(board) });
   return board;
 }
 
 /** Where a run stands: sent with it, or asked for if it went already. */
 export function standing(run: Run): Promise<Board> {
-  const seed = run.seed;
-  if (!isSent(run.at) || seed === null) return submitRun(run);
-  return fetchBoard(run.mode, seed).then((b) => (b.local ? localBoard(run.mode, seed, run.name ?? playerName()) : b));
+  if (!isSent(run.at) || !run.ranked) return submitRun(run);
+  return fetchBoard(run.mode).then((b) => (b.local ? localBoard(run.mode, run.name ?? playerName()) : b));
 }
 
 /** 'local': kept in this browser, as there is no board to ask. */
@@ -190,8 +191,8 @@ export type NameResult = 'ok' | 'local' | 'taken' | 'invalid' | 'offline';
 
 /**
  * Play under a name: a new one, or one played under here before. Games from
- * before any name was picked become the first name's, and today's best in
- * each mode goes up, so they count. Without a board the name is kept here,
+ * before any name was picked become the first name's, and the best on the
+ * course in each mode goes up, so they count. Without a board the name is kept here,
  * and claimed with the first run that goes up.
  */
 export async function setPlayerName(v: string): Promise<NameResult> {
@@ -209,8 +210,7 @@ export async function setPlayerName(v: string): Promise<NameResult> {
   cache.clear();
   nameRuns(name);
   if (result === 'ok') {
-    const today = dailySeed();
-    const mine = runsOf(name).filter((r) => r.seed === today);
+    const mine = runsOf(name).filter((r) => r.ranked);
     await Promise.allSettled(MODE_INFO
       .map((m) => mine.filter((r) => r.mode === m.id).sort(better)[0])
       .filter((r): r is Run => !!r && !r.sent)

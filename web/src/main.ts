@@ -5,14 +5,13 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { World } from './world';
 import { Player } from './player';
 import { HUD } from './hud';
-import { PoiLayer } from './pois';
 import { SightLayer } from './sights';
 import { skyMaterial } from './materials';
 import { FOG_DAY, FOG_NIGHT, SUN_DIR, installAtmosphere } from './atmosphere';
-import { makeGame, type Game } from './games';
+import { makeGame, startPoint, type Game } from './games';
 import { GameLoader } from './loading';
 import { playerName } from './ranking';
-import { bestScore, recordRun } from './scores';
+import { bestCount, recordRun } from './scores';
 import { Menu, type Choice } from './menu';
 import { applyStatic, onLang, t } from './i18n';
 import { Settings } from './settings';
@@ -61,8 +60,6 @@ renderer.setSize(innerWidth, innerHeight);
 // tone mapping and colour conversion - the sky and the haze included.
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -90,19 +87,9 @@ const sunDir = SUN_DIR;
   pmrem.dispose();
 }
 
-// The sun. Its shadow camera is a box that follows the player around, since
-// one map over the whole square kilometre would be far too coarse to see.
-const SHADOW_SPAN = 140;
+// The sun, faded to moonlight in a game. No shadows: the game is at night,
+// and they were the most expensive thing in the frame.
 const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
-sun.castShadow = true;
-sun.shadow.mapSize.set(LOW ? 2048 : 4096, LOW ? 2048 : 4096);
-sun.shadow.camera.left = sun.shadow.camera.bottom = -SHADOW_SPAN;
-sun.shadow.camera.right = sun.shadow.camera.top = SHADOW_SPAN;
-sun.shadow.camera.near = 1;
-sun.shadow.camera.far = 900;
-sun.shadow.camera.updateProjectionMatrix();     // otherwise it stays at three's +-5 m default
-sun.shadow.bias = -0.0003;
-sun.shadow.normalBias = 0.04;                  // world metres, not texels
 scene.add(sun, sun.target);
 const hemi = new THREE.HemisphereLight(0xcfdcf0, 0x4a4840, 0.8);
 scene.add(hemi);
@@ -136,38 +123,20 @@ if (world.manifest.environment) {
 
 const player = new Player(world);
 const hud = new HUD(world);
-const pois = new PoiLayer(scene, world);
 const sights = new SightLayer(scene, world, hud.overview);
-world.onFull = (tile) => { if (tile.poiFile) void pois.add(tile.key, tile.poiFile); };
-world.onDropFull = (tile) => pois.remove(tile.key);
 
-// Spawn on the pavement picked by the navigation pipeline, not the geometric
-// centre - the middle of the area is just as likely to be an enclosed
-// courtyard you cannot walk out of.
-const sx = world.spawnPoint.x;
-const sz = world.spawnPoint.z;
+// Wait behind the menu where every game starts: the tiles it needs stream
+// in while the start page is read, so start has little left to load. The
+// menu itself needs none of them.
+const [sx, sz] = startPoint(hud.overview, world) ?? [world.spawnPoint.x, world.spawnPoint.z];
 player.pos.set(sx, 0, sz);
 player.yaw = Math.PI * 0.25;
-
-await world.ensure(sx, sz, (m) => say(m, 0.7));
-player.spawn(sx, sz);
-// a pinned spawn can also carry the direction to look in
-if (world.spawnPoint.heading !== undefined) {
-  player.yaw = world.spawnPoint.heading;
-  player.heading = world.spawnPoint.heading;
-}
-// shadows are the most expensive thing in the frame; phones start without
 const touchDevice = isTouchDevice();
 if (touchDevice) {
   // a phone has no room for the full credits; the licences still show
   document.getElementById('credits')!.dataset.i18n = 'credits.short';
   applyStatic();
 }
-let shadowsWanted = !touchDevice;
-function applyShadows(): void {
-  sun.castShadow = shadowsWanted;
-}
-applyShadows();
 
 say(t('boot.ready'), 1);
 
@@ -182,7 +151,8 @@ let pointerLocked = false;
 /* --- the game ------------------------------------------------------------ */
 
 let game: Game | null = null;
-let gameSeed: number | null = null;
+/** Started where it should: on the board. */
+let gameRanked = false;
 let gameChoice: Choice | null = null;
 let starting = false;
 const loader = new GameLoader();
@@ -199,8 +169,7 @@ async function choose(c: Choice): Promise<void> {
   starting = true;
   // the course and its tiles take a moment; the city behind it stays
   // covered until the game takes over
-  loader.show(c.id, touchDevice);
-  const seed = 'seed' in c ? c.seed : null;
+  loader.show(c.id);
   try {
     const g = makeGame(c.id, { scene, world, player, hud, camera, setNight: (n) => { night = n; } });
     // Esc on the loading screen: give up after whatever step is under way
@@ -212,38 +181,33 @@ async function choose(c: Choice): Promise<void> {
     };
     await g.load();
     if (backOut()) return;
-    let ranked = seed;
-    const at = seed !== null ? g.choose(seed) : null;
-    if (seed !== null) {
-      if (at) {
-        await world.ensure(at[0], at[1]);
-        if (backOut()) return;
-        player.spawn(at[0], at[1]);
-      } else {
-        // no market cluster in this build: no fair start
-        ranked = null;
-      }
+    // without the start in this build there is no fair start: unranked, where you are
+    const at = g.startAt();
+    if (at) {
+      await world.ensure(at[0], at[1]);
+      if (backOut()) return;
+      player.spawn(at[0], at[1]);
     }
     g.prepare();
     await cityAround();
     // again, now the whole neighbourhood is in: with only the one tile, the
     // free spot next to it can sit on ground that had no height yet
     if (at) player.spawn(at[0], at[1]);
-    // the controls stay up until the player says go
-    await loader.ready();
     if (backOut()) return;
-    // the click or key that said go is the gesture pointer lock needs
+    // after a quick load the click on start still counts as the gesture
+    // pointer lock needs; after a long one, a click on the city takes the mouse
     if (!touchDevice) lockPointer();
-    // the score to beat, chased live
-    if (ranked !== null) g.best = bestScore(c.id, ranked);
+    // the run to beat, chased live
+    if (at) g.best = bestCount(c.id);
     document.body.classList.add('gaming');
-    pois.quiet = true;
     game = g;
-    gameSeed = ranked;
+    gameRanked = !!at;
     gameChoice = c;
     g.start();
-    if (ranked !== null) hud.hint('', 0.01);
-    else if (seed !== null) hud.hint(t('hint.noFair'), 5);
+    hud.hint(at ? '' : t('hint.noFair'), at ? 0.01 : 5);
+    if (!touchDevice) {
+      setTimeout(() => { if (game === g && !pointerLocked) hud.hint(t('hint.clickToSteer'), 5); }, 500);
+    }
   } catch (err) {
     // back to the menu: outside a game there is nothing to do
     menu.showNote(() => t('hint.cantStart', { e: (err as Error).message }));
@@ -253,9 +217,9 @@ async function choose(c: Choice): Promise<void> {
   }
 }
 
-/** Hold the loading screen until everything around the player has streamed
- *  in - the tiles at the detail their distance asks for - or 30 s have
- *  passed, should one never arrive. */
+/** Hold the loading screen until the city right around the player has
+ *  streamed in (World.progress) - or 30 s have passed, should a tile never
+ *  arrive. */
 async function cityAround(): Promise<void> {
   const until = performance.now() + 30_000;
   for (;;) {
@@ -274,7 +238,6 @@ function stopGame(): Game | null {
   setPaused(false);
   g.stop();
   document.body.classList.remove('gaming');
-  pois.quiet = false;
   keys.clear();
   return g;
 }
@@ -287,10 +250,9 @@ function endGame(abandoned: boolean): void {
     return;
   }
   const r = g.result;
-  const run = { mode: g.info.id, seed: gameSeed, score: r.score, count: r.count,
-                medal: r.medal, combo: r.combo, at: Date.now(), name: playerName() ?? undefined };
+  const run = { mode: g.info.id, ranked: gameRanked, count: r.count, at: Date.now(), name: playerName() ?? undefined };
   const best = recordRun(run);
-  menu.showResult(g.info.id, gameSeed, g.result, best, run);
+  menu.showResult(g.info.id, g.result, best, run);
 }
 
 /* --- pause ---------------------------------------------------------------- */
@@ -301,6 +263,8 @@ function setPaused(on: boolean): void {
   if (on === paused) return;
   paused = on;
   pauseEl.classList.toggle('on', on);
+  // the speed lines are the game's; they stop with it
+  document.body.classList.toggle('paused', on);
   keys.clear();
   if (on) {
     pausedAt = performance.now();
@@ -349,16 +313,11 @@ addEventListener('keydown', (e) => {
   if (starting) return;
   if (e.code === 'Space') e.preventDefault();
   if (keys.has(e.code)) return;
-  if (game && (e.code === 'KeyP' || e.code === 'Escape')) {
+  if (game && e.code === 'Escape') {
     // leaving pointer lock with Esc pauses already; the same Esc arriving
     // a moment later must not resume
     if (!paused) pause();
     else if (performance.now() - pausedAt > 300) resume();
-    return;
-  }
-  if (e.code === 'KeyP') {
-    if (menu.open) menu.hide();
-    else menu.show();
     return;
   }
   if (menu.open || paused) return;
@@ -368,12 +327,9 @@ addEventListener('keydown', (e) => {
       player.camMode = (player.camMode + 1) % 3;
       hud.hint(t(`hint.cam${player.camMode}`));
       break;
-    // Places, sights and street names share one key; the per-category toggles were more
-    // keyboard than the feature was worth.
+    // the names over stations and sights
     case 'KeyT': {
-      const on = !(pois.showPois && pois.showStreets);
-      pois.showPois = on;
-      pois.showStreets = on;
+      const on = !sights.visible;
       sights.visible = on;
       hud.hint(t(on ? 'hint.labelsOn' : 'hint.labelsOff'));
       break;
@@ -381,13 +337,6 @@ addEventListener('keydown', (e) => {
     case 'KeyM':
       hud.cycleZoom();
       break;
-    case 'KeyG': {
-      // shadows are the single most expensive thing in the frame
-      shadowsWanted = !shadowsWanted;
-      applyShadows();
-      hud.hint(t(shadowsWanted ? 'hint.shadowsOn' : 'hint.shadowsOff'));
-      break;
-    }
     default:
       break;
   }
@@ -421,7 +370,7 @@ addEventListener('mousemove', (e) => {
 });
 
 const touch = touchDevice ? new TouchControls(look, [
-  { label: '⏸', code: 'KeyP' },
+  { label: '⏸', code: 'Escape' },
   { label: '🎥', code: 'KeyC' },
 ]) : null;
 let touchShown = true;
@@ -462,8 +411,7 @@ void boot;
 // downloaded and they stay readable at third-person distance. See
 // character.ts and sleigh.ts.
 const avatar = makeHuman();
-// lit by the same sun and sky as the city, and casting a shadow into it
-avatar.traverse((c) => { if ((c as THREE.Mesh).isMesh) c.castShadow = true; });
+// lit by the same sun and sky as the city
 scene.add(avatar);
 
 const sleigh = makeSleigh();
@@ -478,6 +426,14 @@ let last = performance.now();
 let fps = 60;
 let acc = 0;
 
+/** Seconds ahead the city streams in, and at most how far, metres. */
+const LOOK_AHEAD = 5;
+const LOOK_AHEAD_MAX = LOW ? 400 : 600;
+/** x and z, as a 2D vector. */
+const lastPos = new THREE.Vector2();
+const vel = new THREE.Vector2();
+const prevVel = new THREE.Vector2();
+
 function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = Math.min((now - last) / 1000, 0.05);
@@ -485,7 +441,15 @@ function frame(now: number): void {
   fps += ((1 / Math.max(dt, 1e-4)) - fps) * 0.08;
   acc += dt;
 
-  world.update(player.pos.x, player.pos.z);
+  // stream towards where the sleigh will be in a few seconds as well
+  if (dt > 0) {
+    vel.set((player.pos.x - lastPos.x) / dt, (player.pos.z - lastPos.y) / dt)
+      .lerp(prevVel, 0.9);
+    prevVel.copy(vel);
+  }
+  lastPos.set(player.pos.x, player.pos.z);
+  const ahead = Math.min(LOOK_AHEAD * vel.length(), LOOK_AHEAD_MAX) / Math.max(vel.length(), 1e-6);
+  world.update(player.pos.x, player.pos.z, player.pos.x + vel.x * ahead, player.pos.z + vel.y * ahead);
   // the menu pauses play, and nobody moves before the countdown says go
   const held = menu.open || paused || starting;
   if (!held && game?.state !== 'countdown') player.update(dt, keys);
@@ -499,7 +463,6 @@ function frame(now: number): void {
     game.update(dt);
     if (game.state === 'over') endGame(false);
   }
-  pois.update(player.pos.x, player.pos.z);
   sights.update(player.pos.x, player.pos.z, dt);
   const head = player.applyCamera(camera, dt);
 
@@ -523,15 +486,10 @@ function frame(now: number): void {
   nightMix += (night - nightMix) * Math.min(1, dt * 2.5);
   // scratch colours, not new ones: a phone's garbage collector stutters
   const fogColor = FOG_SCRATCH.lerpColors(FOG_DAY, FOG_NIGHT, nightMix);
-  // Haze is tuned for standing in a street canyon; from the air it just erases
-  // the city. Push it out with height above the ground so a flyover stays
-  // crisp while street level keeps its depth.
-  const agl = Math.max(0, player.pos.y - world.height(player.pos.x, player.pos.z));
-  const lift = 1 + Math.min(agl, 900) / 90;
-  // ... but never past the edge of what has been loaded
-  // a phone holds full detail only close by (quality.ts): its fog is nearer
-  const far = Math.min(1100 * (LOW ? 0.5 : 1) * lift, world.viewLimit);
-  const near = Math.min((LOW ? 150 : 260) * lift, far * 0.5);
+  // The night haze closes where full detail ends (World.viewLimit), so
+  // buildings never appear in plain view - they stream in behind it.
+  const far = world.viewLimit;
+  const near = far * 0.45;
   fog.color.copy(fogColor);
   fog.near = near;
   fog.far = far;
@@ -541,19 +499,16 @@ function frame(now: number): void {
 
   world.setEnv({ night: nightMix, time: acc });
 
-  // sun and sky light fade together; the shadow box re-centres on the
-  // player in whole texels, so shadow edges do not shimmer as you move
+  // sun and sky light fade together; the sun follows the player, as only
+  // its direction counts
   sun.intensity = 2.6 * (1 - nightMix) + 0.08;
   sun.color.setHex(0xfff1dc).lerp(SUN_NIGHT, nightMix);
   hemi.intensity = hemiDay * (1 - nightMix) + 0.12;
   scene.environmentIntensity = envDay * (1 - nightMix) + 0.1 * nightMix;
   renderer.toneMappingExposure = 1.0 - nightMix * 0.25;
-  const texel = (2 * SHADOW_SPAN) / sun.shadow.mapSize.x;
-  const fx = Math.round(player.pos.x / texel) * texel;
-  const fz = Math.round(player.pos.z / texel) * texel;
-  const gy = world.height(fx, fz);
-  sun.target.position.set(fx, gy, fz);
-  sun.position.set(fx + sunDir.x * 400, gy + sunDir.y * 400, fz + sunDir.z * 400);
+  const { x: fx, z: fz } = player.pos;
+  sun.target.position.set(fx, 0, fz);
+  sun.position.set(fx + sunDir.x * 400, sunDir.y * 400, fz + sunDir.z * 400);
 
   fitToWindow();
   renderer.render(scene, camera);
@@ -564,4 +519,4 @@ requestAnimationFrame(frame);
 
 // expose for quick console poking during development
 (window as unknown as { __berlin: object }).__berlin =
-  { world, player, camera, renderer, scene, hud, pois, menu, game: () => game };
+  { world, player, camera, renderer, scene, hud, menu, game: () => game };

@@ -1,11 +1,11 @@
 /**
  * Your own scores, kept in this browser.
  *
- * Every finished game is a run: mode, course, points and the rest. Runs are
+ * Every finished game is a run: mode, markets reached and whether it counts. Runs are
  * appended to one list in local storage (the newest RUN_CAP; a phone has
- * little room and a few hundred games say enough), and the best score per
- * course is kept apart, so it survives the list being trimmed - it is what a
- * course's record and "new best" are measured against.
+ * little room and a few hundred games say enough), and the best is kept
+ * apart, so it survives the list being trimmed - it is what "new best" is
+ * measured against.
  *
  * A run is plain data with nothing browser-specific in it, so the same record
  * goes to the shared board once the player has picked a name (ranking.ts).
@@ -15,14 +15,11 @@
 
 export interface Run {
   mode: string;
-  /** The course; null where it was played unranked, right where you stood. */
-  seed: number | null;
-  score: number;
+  /** Played from the start; false where the build lacks it and the game
+   *  ran right where you stood. Runs from before the fixed start have none. */
+  ranked?: boolean;
   /** Targets reached. */
   count: number;
-  /** 0 none, 1-3 bronze to gold. */
-  medal: number;
-  combo: number;
   /** When it ended, ms since 1970; also what tells runs apart. */
   at: number;
   /** On the shared board already. */
@@ -54,32 +51,30 @@ export function runs(): Run[] {
 }
 
 /**
- * Scores only compare on the same course, so the best is kept per seed. They
- * are points; the older berlin.best.* keys counted targets and are left be.
+ * The most targets reached from the start. The older berlin.best.*,
+ * berlin.points.* and berlin.count.*.* keys belong to earlier courses and
+ * are left be.
  */
-export function bestScore(mode: string, seed: number): number | null {
-  const v = read<number | null>(`berlin.points.${mode}.${seed}`, null);
+export function bestCount(mode: string): number | null {
+  const v = read<number | null>(`berlin.count.${mode}`, null);
   return typeof v === 'number' ? v : null;
 }
 
-/** Keep a finished run; true if it is a new best on its course. */
+/** Keep a finished run; true if it is a new best. */
 export function recordRun(run: Run): boolean {
   const list = runs();
   list.push(run);
   write(RUNS, list.slice(-RUN_CAP));
-  if (run.seed === null) return false;
-  const best = bestScore(run.mode, run.seed);
-  if (best !== null && run.score <= best) return false;
-  write(`berlin.points.${run.mode}.${run.seed}`, run.score);
+  if (!run.ranked) return false;
+  const best = bestCount(run.mode);
+  if (best !== null && run.count <= best) return false;
+  write(`berlin.count.${run.mode}`, run.count);
   return true;
 }
 
-/**
- * The order on a high score list: more targets first, points between runs
- * that reached as many. Points alone mix in combos and gold, and say less.
- */
-export function better(a: Pick<Run, 'count' | 'score'>, b: Pick<Run, 'count' | 'score'>): number {
-  return b.count - a.count || b.score - a.score;
+/** The order on a high score list: more targets first. */
+export function better(a: Pick<Run, 'count'>, b: Pick<Run, 'count'>): number {
+  return b.count - a.count;
 }
 
 /** Games played before a name was picked are the first name's. */
@@ -111,20 +106,17 @@ export function runsOf(name: string | null): Run[] {
 
 export interface ModeStats {
   played: number;
-  /** The best run on any course. */
+  /** The best ranked run. */
   best: Run | null;
-  /** The best run on today's course. */
-  today: Run | null;
 }
 
-/** A mode's numbers for a name; see runsOf. */
-export function stats(mode: string, todaySeed: number, name: string | null): ModeStats {
-  const s: ModeStats = { played: 0, best: null, today: null };
+/** A mode's numbers over ranked runs for a name; see runsOf. */
+export function stats(mode: string, name: string | null): ModeStats {
+  const s: ModeStats = { played: 0, best: null };
   for (const r of runsOf(name)) {
-    if (r.mode !== mode) continue;
+    if (r.mode !== mode || !r.ranked) continue;
     s.played++;
     if (!s.best || better(r, s.best) < 0) s.best = r;
-    if (r.seed === todaySeed && (!s.today || better(r, s.today) < 0)) s.today = r;
   }
   return s;
 }

@@ -65,26 +65,6 @@ export class Overview {
     }
     return null;
   }
-
-  /**
-   * Something close by to say where you are: a landmark within 1.2 km, else
-   * a station within 1.5 km, else nothing. With its distance in metres.
-   */
-  nearest(x: number, z: number): { name: string; d: number } | null {
-    const near = <T extends { x: number; z: number }>(list: T[]) => {
-      let best: T | null = null, bd = Infinity;
-      for (const p of list) {
-        const d = Math.hypot(p.x - x, p.z - z);
-        if (d < bd) { bd = d; best = p; }
-      }
-      return best ? { p: best, d: bd } : null;
-    };
-    const l = near(this.landmarks);
-    if (l && l.d < 1200) return { name: l.p.name, d: l.d };
-    const s = near(this.stations);
-    if (s && s.d < 1500) return { name: stationName(s.p), d: s.d };
-    return null;
-  }
 }
 
 /** As the signs put it: S Ostkreuz, U Hermannplatz, S+U Alexanderplatz; a main-line station by its name. */

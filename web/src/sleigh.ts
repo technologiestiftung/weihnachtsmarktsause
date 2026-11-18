@@ -232,7 +232,6 @@ export function makeSleigh(single = false): THREE.Group {
   post.position.set(0, 1.75, 1.25);
   root.add(lamp, post);
   root.userData.team = team;
-  root.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
   return root;
 }
 

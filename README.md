@@ -31,9 +31,8 @@ read at build time.
 | `A` `D`, mouse | steer; the mouse also climbs and dives |
 | `Space` `Ctrl` | climb, dive |
 | `C` | camera: third person · close · first person |
-| `G` | shadows on / off |
 | `T` | labels · `M` map: all of Berlin, 10 km, 3 km |
-| `P` `Esc` | pause, with resume, restart and quit |
+| `Esc` | pause, with resume, restart and quit |
 
 On a phone or tablet: a virtual joystick on the left half, drag on the
 right half to look, and buttons for pause and camera. A phone runs a lower
@@ -41,14 +40,10 @@ quality tier (`web/src/quality.ts`; `?quality=low|high` to choose).
 
 ## The game
 
-* **Today's course.** The start screen plays today's course: the date is the
-  seed, so everyone playing on the same day starts at the same spot over
-  the same markets. `#play=markets:<seed>` in the URL offers a course as a
-  challenge, and the result screen copies that link.
-* **Points, combos and gold.** Each market is worth 100 points. Reaching the
-  next one before the combo bar runs out multiplies that, up to ×5. About one
-  market in fourteen is golden: triple points and double time. Each market
-  gives a few seconds back. Medals 🥉 🥈 🥇 at 4, 8 and 14 markets.
+* **One start.** Every game starts at Friedrichstraße station, so runs
+  compare for the whole season and the high scores stay put.
+* **Markets reached is the score.** Each market gives a few seconds back on
+  the clock; the board ranks by markets reached.
 * **Start menu.** Start, high scores and settings over falling snow. The
   settings (also reachable from the pause screen) hold the language, sound
   on/off with master, music and effects volume, and a tab with the
@@ -65,7 +60,8 @@ quality tier (`web/src/quality.ts`; `?quality=low|high` to choose).
 
 `web/public/data/games/markets.json` holds the markets and is served with
 the app (it is small and fixed for the season): `[x, z, name, dates]` per
-market, in world metres.
+market, in world metres. Only markets inside the 3D city are listed; the
+eleven in Brandenburg (Potsdam, Königs Wusterhausen, Prenzlau) are left out.
 
 ## Scores
 
@@ -77,7 +73,18 @@ credentials and checks each run. This API accepts runs for the Sause only.
 
 `npm run bench:games` plays a round in headless Chrome as a phone
 (`--desktop`, `--landscape`, `--seconds`, `--shots`), with `npm run dev`
-running in another terminal.
+running in another terminal. `--cpu 4` slows the CPU down and `--net 4g` or
+`--net 3g` the connection, e.g. `--desktop --cpu 4 --net 4g` for an older
+laptop on mobile data. It reports the loading time, what was downloaded and
+the memory peak.
+
+The game only ever shows the city from the sleigh at night, so it loads
+less than the tile build holds: terrain, land cover, water, shorelines,
+bridge decks, buildings and trees. Street furniture, the navigation grid,
+street names and places, bridge railings, aerial photos and shadows are left
+out. While the start page is up, the tiles around the start load behind it;
+a game starts once the two nearest are in, and while one tile is built the
+next one downloads (not on a phone, where memory is tighter).
 
 ## Contributors
 

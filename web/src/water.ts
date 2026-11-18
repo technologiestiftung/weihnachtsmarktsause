@@ -128,7 +128,6 @@ export function waterMesh(data: WaterData, ox: number, oz: number, mat: THREE.Ma
   geo.setIndex(idx);
   geo.computeBoundingSphere();
   const mesh = new THREE.Mesh(geo, mat);
-  mesh.receiveShadow = true;
   mesh.name = 'water';
   mesh.renderOrder = WATER_ORDER;
   return mesh;

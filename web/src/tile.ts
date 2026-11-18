@@ -6,13 +6,16 @@ import { Shorelines, type ShoreData } from './shorelines';
 import { WaterField, waterMaterial, waterMesh } from './water';
 import { breathe, upload } from './frames';
 import { freeOnUpload, shareMaterialTextures, sharedTextures, shrinkTextures } from './memory';
-import type { CoverJob, MapJob, Raster } from './mapworker';
+import type { CoverJob, Raster } from './mapworker';
 import { LOW } from './quality';
-import { NavGrid, TerrainField, parseProps, parseTrees, type Tree } from './tiles';
+import { TerrainField, parseTrees, type Tree } from './tiles';
 import { bridgeMaterial, crownMaterial, litWindows, terrainMaterial, trunkMaterial,
          type GroundKind, type GroundTextures } from './materials';
 
 const TERRAIN_CHUNK = 100;          // metres per terrain mesh
+/** Metres between vertices close by: from the sleigh, 2 m looks like 1 m
+ *  at a quarter of the vertices. */
+const FINE_STEP = 2;
 const COARSE_STEP = 4;              // metres between vertices of a distant tile
 /** The 0.5 m cover mask is loaded at a fraction of its size: decoded, a
  *  2,400 px mask is 30 MB. Distant tiles draw a 4 m mesh, so a 4 m mask is
@@ -33,9 +36,6 @@ export interface TileManifest {
                  /** Merged per chunk and material already (pipeline/pack_buildings.py). */
                  packed?: boolean };
   trees: { file: string; count: number };
-  props?: { file: string; models: string; kinds: string[]; count: number };
-  nav: { file: string };
-  pois?: string;
   /** Bridge decks; absent where there are none. */
   bridges?: { file: string; count: number };
   /** Flat water surfaces (pipeline/water.py); absent where there is none. */
@@ -53,8 +53,9 @@ type Uniforms = { uniforms: Record<string, THREE.IUniform> };
  *
  *  - coarse: terrain every 4 m. Cheap enough to keep a few kilometres of
  *    them around for the view from the air.
- *  - full: 1 m terrain, buildings, trees,
- *    street furniture, the navigation grid and the minimap.
+ *  - full: 2 m terrain, buildings and trees. The build also has street
+ *    furniture, a navigation grid and a minimap per tile; from the sleigh at
+ *    night none of them shows, so they are not loaded.
  *
  * Geometry is stored relative to the tile's north-west corner and placed
  * with the mesh position: Berlin is 40 km across, and world coordinates that
@@ -76,13 +77,8 @@ export class Tile {
   shorelines: Shorelines | null = null;
   /** The water's cells and levels, from the coarse level on: what a boat floats on. */
   water: WaterField | null = null;
-  nav: NavGrid | null = null;
-  /** 1 px = 1 m minimap of a full tile. */
-  map: ImageBitmap | null = null;
   trees: Tree[] = [];
   buildings = 0;
-  /** POI file of a full tile, relative to the data root, if it has one. */
-  poiFile: string | null = null;
 
   readonly animated: Uniforms[] = [];
   readonly windowMats: THREE.MeshStandardMaterial[] = [];
@@ -95,7 +91,7 @@ export class Tile {
   private deckMesh: THREE.Mesh | null = null;
   private shoreMesh: THREE.Group | null = null;
   private waterMat: THREE.MeshStandardMaterial | null = null;
-  /** Shared facade textures held by this tile's buildings and props. */
+  /** Shared facade textures held by this tile's buildings. */
   private sharedKeys: string[] = [];
   private coarse: THREE.Mesh | null = null;
   private fine = new THREE.Group();
@@ -133,10 +129,60 @@ export class Tile {
     return this.base + file + (this.version ? `?v=${this.version}` : '');
   }
 
-  private async blob(file: string): Promise<Blob> {
-    const res = await fetch(this.url(file));
-    if (!res.ok) throw new Error(`${this.url(file)} (${res.status})`);
-    return res.blob();
+  /** Downloads started and not yet used, by file: see prefetch(). */
+  private downloads = new Map<string, Promise<ArrayBuffer>>();
+
+  /** A file's bytes, from a download prefetch() started if there is one. */
+  private bytes(file: string): Promise<ArrayBuffer> {
+    const started = this.downloads.get(file);
+    if (started) {
+      this.downloads.delete(file);
+      return started;
+    }
+    return fetch(this.url(file)).then((res) => {
+      if (!res.ok) throw new Error(`${this.url(file)} (${res.status})`);
+      return res.arrayBuffer();
+    });
+  }
+
+  private async json<T>(file: string): Promise<T> {
+    return JSON.parse(new TextDecoder().decode(await this.bytes(file))) as T;
+  }
+
+  /** The files a level needs, besides those the level below has. */
+  private files(level: 'coarse' | 'full'): string[] {
+    const m = this.manifest!;
+    if (level === 'coarse') {
+      return [m.terrain.file, m.cover.file, m.bridges?.file, m.water?.file, m.shorelines?.file]
+        .filter((f): f is string => !!f);
+    }
+    return [m.trees.file, m.cover.file, m.buildings?.file].filter((f): f is string => !!f);
+  }
+
+  /**
+   * Start downloading what raising this tile to `level` will take, while
+   * another tile is still being built: the network and the main thread then
+   * work at once. load*() picks the downloads up.
+   */
+  async prefetch(level: 'coarse' | 'full'): Promise<void> {
+    if (!this.manifest) {
+      const res = await fetch(this.url('tile.json'));
+      if (!res.ok) return;
+      this.manifest = await res.json() as TileManifest;
+    }
+    const levels = level === 'full' && this.level === 'none' ? ['coarse', 'full'] as const : [level];
+    for (const l of levels) {
+      for (const file of this.files(l)) {
+        if (this.downloads.has(file)) continue;
+        const p = fetch(this.url(file)).then((res) => {
+          if (!res.ok) throw new Error(`${this.url(file)} (${res.status})`);
+          return res.arrayBuffer();
+        });
+        // a failed prefetch is fetched again when it is needed
+        p.catch(() => { if (this.downloads.get(file) === p) this.downloads.delete(file); });
+        this.downloads.set(file, p);
+      }
+    }
   }
 
   /**
@@ -144,8 +190,8 @@ export class Tile {
    * worker (mapworker.ts), never through the browser's image handling, which
    * does its own thing with the alpha channel - the water class.
    */
-  private async coverTexture(png: Blob, scale: number, aniso: number): Promise<THREE.Texture> {
-    const r = await tileJob<Raster>({ kind: 'cover', png, scale }, []);
+  private async coverTexture(png: ArrayBuffer, scale: number, aniso: number): Promise<THREE.Texture> {
+    const r = await tileJob<Raster>({ kind: 'cover', png, scale }, [png]);
     const tex = new THREE.DataTexture(r.data, r.w, r.h, THREE.RGBAFormat, THREE.UnsignedByteType);
     // row 0 is the north edge, i.e. the minimum z
     tex.flipY = false;
@@ -174,11 +220,11 @@ export class Tile {
     }
     const m = this.manifest;
     const [tbuf, cover, bridges, water, shore] = await Promise.all([
-      fetch(this.url(m.terrain.file)).then((r) => r.arrayBuffer()),
-      this.blob(m.cover.file).then((png) => this.coverTexture(png, COARSE_COVER, aniso)),
-      m.bridges ? fetch(this.url(m.bridges.file)).then((r) => r.json()) : Promise.resolve(null),
-      m.water ? fetch(this.url(m.water.file)).then((r) => r.json()) : Promise.resolve(null),
-      m.shorelines ? fetch(this.url(m.shorelines.file)).then((r) => r.json() as Promise<ShoreData>) : Promise.resolve(null),
+      this.bytes(m.terrain.file),
+      this.bytes(m.cover.file).then((png) => this.coverTexture(png, COARSE_COVER, aniso)),
+      m.bridges ? this.json<ConstructorParameters<typeof Decks>[0]>(m.bridges.file) : Promise.resolve(null),
+      m.water ? this.json<Parameters<typeof waterMesh>[0]>(m.water.file) : Promise.resolve(null),
+      m.shorelines ? this.json<ShoreData>(m.shorelines.file) : Promise.resolve(null),
     ]);
     if (this.disposed) return;
     this.terrain = new TerrainField(tbuf);
@@ -248,25 +294,20 @@ export class Tile {
     const m = this.manifest!;
     const live = () => !this.disposed && this.level === 'coarse';
     this.fine.visible = this.open.visible = false;
-    const [nbuf, tbuf, gltf, props, coverBlob] = await Promise.all([
-      fetch(this.url(m.nav.file)).then((r) => r.arrayBuffer()),
-      fetch(this.url(m.trees.file)).then((r) => r.arrayBuffer()),
-      m.buildings ? new GLTFLoader().loadAsync(this.url(m.buildings.file)) : Promise.resolve(null),
-      m.props ? Promise.all([
-        new GLTFLoader().loadAsync(this.url(m.props.models)),
-        fetch(this.url(m.props.file)).then((r) => r.arrayBuffer()),
-      ]) : Promise.resolve(null),
-      this.blob(m.cover.file),
+    const [tbuf, gltf, png] = await Promise.all([
+      this.bytes(m.trees.file),
+      m.buildings ? this.bytes(m.buildings.file).then((b) => new GLTFLoader().parseAsync(b, this.base))
+                  : Promise.resolve(null),
+      this.bytes(m.cover.file),
     ]);
     if (!live()) return this.unloadFull();
     // full-size ground textures in place of the coarse level's small ones
-    const cover = await this.coverTexture(coverBlob, FULL_COVER, aniso);
+    const cover = await this.coverTexture(png, FULL_COVER, aniso);
     this.fullTextures.push(cover);
     for (const tex of this.fullTextures) await upload(tex);
     if (!live()) return this.unloadFull();
     this.ground = { ...this.small!, cover };
 
-    this.nav = new NavGrid(nbuf);
     this.trees = parseTrees(tbuf);
     await this.buildFine();
     if (!live()) return this.unloadFull();
@@ -277,15 +318,10 @@ export class Tile {
     if (!live()) return this.unloadFull();
     this.buildTrees();
     await breathe();
-    if (props && m.props) await this.buildProps(props[0], props[1], m.props.kinds, aniso);
     if (!live()) return this.unloadFull();
-    const map = await this.buildMap(coverBlob);
-    if (!live()) { map.close(); return this.unloadFull(); }
-    this.map = map;
     this.setDecks();
     this.setShores();
     this.buildings = m.buildings?.count ?? 0;
-    this.poiFile = m.pois ? this.url(m.pois) : null;
     if (this.coarse) this.coarse.visible = false;
     this.fine.visible = this.open.visible = true;
     this.level = 'full';
@@ -318,12 +354,8 @@ export class Tile {
     const coarse = this.coarse?.material as THREE.MeshStandardMaterial | undefined;
     this.animated.splice(0, this.animated.length,
       ...[coarse, this.waterMat].filter((x) => x).map((x) => x!.userData as Uniforms));
-    this.nav = null;
-    this.map?.close();
-    this.map = null;
     this.trees = [];
     this.buildings = 0;
-    this.poiFile = null;
     if (this.coarse) this.coarse.visible = true;
     if (this.level === 'full') this.level = 'coarse';
   }
@@ -348,25 +380,23 @@ export class Tile {
     const geo = this.terrainGeometry(0, 0, nx, nz, COARSE_STEP, gridIndex(nx, nz));
     freeOnUpload(geo);
     const mesh = new THREE.Mesh(geo, this.terrainMat());
-    mesh.receiveShadow = true;
     mesh.name = 'terrain';
     this.coarse = mesh;
     this.group.add(mesh);
   }
 
-  /** 1 m meshes, one per TERRAIN_CHUNK square. All chunks share one index:
-   *  they are the same grid. */
+  /** FINE_STEP meshes, one per TERRAIN_CHUNK square. All chunks share one
+   *  index: they are the same grid. */
   private async buildFine(): Promise<void> {
     const t = this.terrain!;
-    const n = TERRAIN_CHUNK + 1;
+    const n = TERRAIN_CHUNK / FINE_STEP + 1;
     const index = gridIndex(n, n);
     for (let cz = 0; cz < t.nz - 1; cz += TERRAIN_CHUNK) {
       for (let cx = 0; cx < t.nx - 1; cx += TERRAIN_CHUNK) {
-        const geo = this.terrainGeometry(cx, cz, n, n, 1, index);
+        const geo = this.terrainGeometry(cx, cz, n, n, FINE_STEP, index);
         // the shared index stays: every chunk's upload needs it
         freeOnUpload(geo, geo.index === index);
         const mesh = new THREE.Mesh(geo, this.terrainMat());
-        mesh.receiveShadow = true;
         mesh.name = 'terrain';
         this.fine.add(mesh);
         await breathe();
@@ -477,8 +507,6 @@ export class Tile {
         this.windowMats.push(std);
       }
       const mesh = new THREE.Mesh(merged, mat);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
       mesh.name = 'buildings';
       this.open.add(mesh);
     }
@@ -516,84 +544,11 @@ export class Tile {
       mesh.removeFromParent();
       mesh.position.set(0, 0, 0);
       mesh.updateMatrix();
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
       mesh.name = 'buildings';
       this.open.add(mesh);
       await breathe();
       if (this.disposed) return;
     }
-  }
-
-  /**
-   * Street furniture: one OSM2World prototype per kind, copied to every
-   * surveyed position. Most kinds have only a handful of copies (a sign
-   * combination often just one), so instancing would cost a draw call per
-   * kind; instead the copies are baked and merged per material.
-   */
-  private async buildProps(gltf: { scene: THREE.Group }, buf: ArrayBuffer, kinds: string[],
-                           aniso: number): Promise<void> {
-    gltf.scene.updateMatrixWorld(true);
-    const parts = new Map<string, { geo: THREE.BufferGeometry; mat: THREE.Material }[]>();
-    gltf.scene.traverse((o) => {
-      const mesh = o as THREE.Mesh;
-      if (!mesh.isMesh) return;
-      let kind: string | undefined;
-      for (let q: THREE.Object3D | null = mesh; q && kind === undefined; q = q.parent) {
-        kind = q.userData.kind as string | undefined;
-      }
-      if (kind === undefined) return;
-      const list = parts.get(kind) ?? [];
-      list.push({ geo: cleanGeometry(mesh.geometry.clone().applyMatrix4(mesh.matrixWorld)),
-                  mat: mesh.material as THREE.Material });
-      parts.set(kind, list);
-    });
-
-    const groups = new Map<string, { mat: THREE.Material; geos: THREE.BufferGeometry[] }>();
-    const m = new THREE.Matrix4();
-    const q = new THREE.Quaternion();
-    const up = new THREE.Vector3(0, 1, 0);
-    const one = new THREE.Vector3(1, 1, 1);
-    for (const prop of parseProps(buf)) {
-      const list = parts.get(kinds[prop.kind]);
-      if (!list) continue;
-      m.compose(new THREE.Vector3(prop.x - this.bounds[0], prop.y, prop.z - this.bounds[1]),
-                q.setFromAxisAngle(up, prop.yaw), one);
-      for (const { geo, mat } of list) {
-        let g = groups.get(mat.uuid);
-        if (!g) { g = { mat, geos: [] }; groups.set(mat.uuid, g); }
-        g.geos.push(geo.clone().applyMatrix4(m));
-      }
-    }
-    const facades = new Set([...groups.values()].map((g) => g.mat));
-    if (LOW) await shrinkTextures(facades, FACADE_MAX);
-    this.sharedKeys.push(...shareMaterialTextures(facades));
-    for (const { mat, geos } of groups.values()) {
-      const merged = mergeGeometries(geos, false);
-      for (const g of geos) g.dispose();
-      await breathe();
-      if (!merged) continue;
-      merged.computeBoundingSphere();
-      freeOnUpload(merged);
-      const std = mat as THREE.MeshStandardMaterial;
-      for (const tex of [std.map, std.normalMap, std.roughnessMap, std.aoMap]) {
-        if (tex) tex.anisotropy = aniso;
-      }
-      // bus shelter walls: OSM2World exports its glass opaque
-      const glass = std.name === 'GLASS';
-      if (glass) {
-        std.transparent = true;
-        std.opacity = 0.3;
-        std.depthWrite = false;
-        std.side = THREE.DoubleSide;
-      }
-      const mesh = new THREE.Mesh(merged, mat);
-      mesh.castShadow = !glass;
-      mesh.receiveShadow = true;
-      mesh.name = 'props';
-      this.open.add(mesh);
-    }
-    for (const list of parts.values()) for (const { geo } of list) geo.dispose();
   }
 
   /**
@@ -641,8 +596,6 @@ export class Tile {
       }
     }
     for (const im of [trunks, crowns, cones]) {
-      im.castShadow = true;
-      im.receiveShadow = true;
       im.instanceMatrix.needsUpdate = true;
       if (im.instanceColor) im.instanceColor.needsUpdate = true;
       im.computeBoundingSphere();
@@ -651,18 +604,6 @@ export class Tile {
     }
   }
 
-  /** 1 px = 1 m top-down map of the tile: ground cover plus building
-   *  footprints, drawn by mapworker.ts from the cover mask already loaded. */
-  private buildMap(cover: Blob): Promise<ImageBitmap> {
-    const n = this.nav!;
-    const cv = this.manifest!.cover;
-    const job: MapJob = {
-      kind: 'map', png: cover, coverMin: [cv.minX, cv.minZ], coverRes: cv.res,
-      navMin: [n.minX, n.minZ], navCell: n.cell, nx: n.nx, nz: n.nz,
-      terrain: n.terrain.slice(), flags: n.flags.slice(), buildingFlag: NavGrid.BUILDING,
-    };
-    return tileJob<ImageBitmap>(job, [job.terrain.buffer, job.flags.buffer]);
-  }
 }
 
 /* --- helpers --------------------------------------------------------------- */
@@ -671,7 +612,7 @@ let worker: Worker | null = null;
 let queue: Promise<unknown> = Promise.resolve();
 
 /** One job at a time on the shared tile worker (mapworker.ts). */
-function tileJob<T>(job: CoverJob | MapJob, transfer: Transferable[]): Promise<T> {
+function tileJob<T>(job: CoverJob, transfer: Transferable[]): Promise<T> {
   worker ??= new Worker(new URL('./mapworker.ts', import.meta.url), { type: 'module' });
   const w = worker;
   const next = queue.then(() => new Promise<T>((resolve, reject) => {

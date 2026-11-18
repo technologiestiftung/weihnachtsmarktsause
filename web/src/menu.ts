@@ -1,40 +1,26 @@
-import { MEDALS, MODE_INFO, dailySeed, modeText, type Result } from './games';
-import { lang, num, onLang, t } from './i18n';
+import { MODE_INFO, modeText, type Result } from './games';
+import { lang, onLang, t } from './i18n';
 import { playerName, setPlayerName, standing, type Board } from './ranking';
 import { Scoreboard } from './scoreboard';
-import { bestScore, type Run } from './scores';
+import { bestCount, type Run } from './scores';
 import type { Settings } from './settings';
 import { art } from './loadingart';
 
 /**
  * The start menu, on black with a lit tree in falling snow: start, high scores and settings, with a
- * game's result or a challenge above them.
+ * game's result above them.
  *
- * A game is played on a course - a seed that picks a fair start - so that
- * scores mean something: start plays today's course, the same for
- * everyone today. That is the only choice offered - one course a day is
- * easy to understand and to compare. A course also travels as a link,
- * #play=<mode>:<seed>, to challenge someone on it.
+ * Every game starts at the same place (games.ts, START_STATION), so runs compare
+ * for the whole season: start is the only choice there is.
  */
 
-export type Choice = { id: string; seed: number | null };
+export type Choice = { id: string };
 
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ''): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
   if (text) e.textContent = text;
   return e;
-}
-
-function courseLink(id: string, seed: number): string {
-  return `${location.origin}${location.pathname}#play=${id}:${seed}`;
-}
-
-/** A course from the URL, if the page was opened with one. */
-function linkedCourse(): { id: string; seed: number } | null {
-  const m = /play=([a-z]+):(\d+)/.exec(location.hash);
-  if (!m || !MODE_INFO.some((i) => i.id === m[1])) return null;
-  return { id: m[1], seed: Number(m[2]) };
 }
 
 export class Menu {
@@ -51,9 +37,9 @@ export class Menu {
 
   constructor(private readonly onPick: (c: Choice) => void, private readonly settings: Settings) {
     onLang(() => { this.render(); this.redraw?.(); });
-    // there is one game: start plays it on today's course
+    // there is one game on one course: start plays it
     document.getElementById('playBtn')!.addEventListener('click',
-      () => this.pick({ id: MODE_INFO[0].id, seed: dailySeed() }));
+      () => this.pick({ id: MODE_INFO[0].id }));
     // high scores and settings open in a box over the menu
     document.getElementById('scoresBtn')!.addEventListener('click', () => this.scoreboard.show(this.lastMode));
     document.getElementById('settingsBtn')!.addEventListener('click', () => this.settings.show());
@@ -71,8 +57,6 @@ export class Menu {
   /** The world has loaded: show the choices. */
   ready(): void {
     this.boot.classList.add('ready');
-    const linked = linkedCourse();
-    if (linked) this.challenge(linked.id, linked.seed);
     this.render();
     document.getElementById('playBtn')!.focus({ preventScroll: true });
   }
@@ -99,70 +83,36 @@ export class Menu {
     this.onPick(c);
   }
 
-  /** A shared course: offer it at the top. */
-  private challenge(id: string, seed: number): void {
-    const info = MODE_INFO.find((i) => i.id === id)!;
-    this.result.replaceChildren(
-      h('h3', '', t('menu.challenge', { emoji: info.emoji, title: modeText(id, 'title') })),
-      h('p', '', t('menu.challengeText', { seed })),
-      this.buttons([[t('menu.start'), () => this.pick({ id, seed })]]),
-    );
-    this.result.classList.add('on');
-    this.redraw = () => this.challenge(id, seed);
-  }
-
-  /** After a game: the score, its place on the shared board, and what next. */
-  showResult(id: string, seed: number | null, r: Result, newBest: boolean, run: Run): void {
+  /** After a game: how many markets, and its place on the shared board. */
+  showResult(id: string, r: Result, newBest: boolean, run: Run): void {
     this.lastMode = id;
-    this.standing = seed !== null && playerName() ? standing(run) : null;
-    this.drawResult(id, seed, r, newBest, run);
+    this.standing = run.ranked && playerName() ? standing(run) : null;
+    this.drawResult(id, r, newBest, run);
     this.show();
   }
 
-  private drawResult(id: string, seed: number | null, r: Result, newBest: boolean, run: Run): void {
-    const info = MODE_INFO.find((i) => i.id === id)!;
-    const best = seed === null ? null : bestScore(id, seed);
-    const shown = num(best ?? 0, 0);
-    const course = seed === null ? t('menu.unranked')
-      : seed === dailySeed() ? t('menu.today', { best: shown }) : t('menu.course', { seed, best: shown });
-    // the result's own lines were written in the language it ended in
+  private drawResult(id: string, r: Result, newBest: boolean, run: Run): void {
+    const best = run.ranked ? bestCount(id) : null;
+    // the title was written in the language the game ended in
     const kids: HTMLElement[] = [
-      h('h3', '', `${r.medal ? MEDALS[r.medal - 1] : info.emoji} ${r.title}`),
-      h('div', 'big', t('game.points', { n: num(r.score, 0) })),
-      h('p', '', newBest ? t('menu.newBest', { course }) : course),
+      h('h3', '', r.title),
+      h('div', 'big', modeText(id, 'unit', { n: r.count })),
+      h('p', '', modeText(id, 'line', { n: r.count, of: r.of })),
     ];
+    if (!run.ranked) kids.push(h('p', '', t('menu.unranked')));
+    else if (newBest) kids.push(h('p', '', t('menu.newBest')));
     // close enough to taste it: say how close
-    if (!newBest && best !== null && best > r.score && r.score >= best * 0.7) {
-      kids.push(h('p', 'short', t('menu.short', { n: num(best - r.score, 0) })));
-    }
-    if (seed !== null) kids.push(this.rankLine(id, seed, r, newBest, run));
-    kids.push(
-      ...r.lines.slice(0, -1).map((l) => h('p', '', l)),
-      h('p', '', [t('menu.stats', { c: r.combo }), r.golds ? t('menu.golds', { g: r.golds }) : '']
-        .filter(Boolean).join(' · ')),
-      h('p', 'src', t('menu.data', { src: r.lines[r.lines.length - 1] })),
-    );
-    const btns: [string, () => void, boolean?][] = [
-      [t('menu.again'), () => this.pick({ id, seed })],
-    ];
-    if (seed !== null) {
-      btns.push([t('menu.share'), () => {
-        const url = courseLink(id, seed);
-        void navigator.clipboard?.writeText(url).then(
-          () => { share.textContent = t('menu.copied'); },
-          () => { share.textContent = url; });
-      }, true]);
-    }
-    const row = this.buttons(btns);
-    const share = row.lastElementChild as HTMLButtonElement;
-    kids.push(row);
+    else if (best !== null && best > r.count && r.count >= best * 0.7) {
+      kids.push(h('p', 'short', t('menu.short', { n: best - r.count })));
+    } else if (best !== null) kids.push(h('p', '', t('menu.best', { best: modeText(id, 'unit', { n: best }) })));
+    if (run.ranked) kids.push(this.rankLine(id, r, newBest, run));
     this.result.replaceChildren(...kids);
     this.result.classList.add('on');
-    this.redraw = () => this.drawResult(id, seed, r, newBest, run);
+    this.redraw = () => this.drawResult(id, r, newBest, run);
   }
 
   /** The run's place among everyone on the course; without a name, a field to join. */
-  private rankLine(id: string, seed: number, r: Result, newBest: boolean, run: Run): HTMLElement {
+  private rankLine(id: string, r: Result, newBest: boolean, run: Run): HTMLElement {
     if (this.standing) {
       const p = h('p', 'rank', '…');
       this.standing.then(
@@ -195,7 +145,7 @@ export class Menu {
         return;
       }
       this.standing = standing(run);
-      this.drawResult(id, seed, r, newBest, run);
+      this.drawResult(id, r, newBest, run);
     });
     return form;
   }
@@ -206,16 +156,6 @@ export class Menu {
     this.result.classList.add('on');
     this.show();
     this.redraw = () => this.showNote(text);
-  }
-
-  private buttons(list: [string, () => void, boolean?][]): HTMLElement {
-    const row = h('div', 'rb');
-    for (const [label, fn, alt] of list) {
-      const b = h('button', alt ? 'alt' : '', label);
-      b.addEventListener('click', fn);
-      row.append(b);
-    }
-    return row;
   }
 
   /** The data credits, the markets first, and the finder in this language. */

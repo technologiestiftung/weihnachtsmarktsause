@@ -1,8 +1,7 @@
 import * as THREE from 'three';
-import type { Origin, XZ } from './geo';
+import type { Origin } from './geo';
 import type { DeckHit } from './bridges';
 import { setUploader } from './frames';
-import { NavGrid } from './tiles';
 import { t } from './i18n';
 import { closeOnUpload } from './memory';
 import { LOW } from './quality';
@@ -13,23 +12,20 @@ const BERLIN = ((import.meta.env.VITE_TILE_BASE as string | undefined) ?? '')
   .replace(/\/?$/, '/');
 
 // Streaming distances, metres from the player to the nearest edge of a tile.
-// Street level is hazed out by ~1.1 km, so full detail need not reach further;
-// the coarse ring is for the view from the air.
 // Full detail within FULL_IN, dropped past FULL_OUT; distant tiles likewise.
-// A phone holds far less (quality.ts): its fog closes in to match.
+// The fog closes at FULL_IN (viewLimit), so a tile's buildings appear while
+// still hidden in it; the coarse ring beyond is only the ground a full tile
+// is built on, loaded a little ahead. A phone holds far less (quality.ts):
+// its fog closes in to match.
 const FULL_IN = LOW ? 380 : 800;
 const FULL_OUT = LOW ? 540 : 1100;
-const COARSE_IN = LOW ? 1400 : 2600;
-const COARSE_OUT = LOW ? 1700 : 3200;
+const COARSE_IN = FULL_IN + 600;
+const COARSE_OUT = COARSE_IN + 300;
+/** A game starts once the full tiles this close are in; the rest streams in
+ *  during the countdown. At the start, Friedrichstraße, that is 2 of 6. */
+const START_IN = 400;
 /** How far up a surface may be and still be stepped onto, metres. */
 const STEP_UP = 1.0;
-/** How far in from a deck's edge you must stand, metres: a footbridge
- *  1.1 m wide still holds you - Ernststeg is 1.6 m. */
-export const WALK_INSET = 0.15;
-/** A spawn's ground must reach this far, metres, to count as not walled in;
- *  more than the span of a Berlin block's courtyards. */
-const OPEN_REACH = 160;
-const STEPS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
 /** world.json: the index of the tiled build (pipeline/build_berlin.py). */
 export interface Manifest {
@@ -66,19 +62,22 @@ export class World {
   manifest!: Manifest;
   origin!: Origin;
   spawnPoint!: { x: number; z: number; heading?: number };
-  /** Navigation across every loaded tile. */
-  readonly nav = new WorldNav(this);
   /** How far the loaded world reaches; fog should close before this. */
   viewLimit = Infinity;
   /** Called when a tile gains or loses full detail (POIs follow these). */
-  onFull: (tile: Tile) => void = () => {};
-  onDropFull: (tile: Tile) => void = () => {};
 
   readonly tiles = new Map<string, Tile>();
   private readonly base = BERLIN;
   private shared!: SharedGround;
   private aniso = 1;
   private busy = false;
+  /** The tile being raised now, and those whose next level is downloading
+   *  meanwhile (Tile.prefetch), as key:level. */
+  private raising: Tile | null = null;
+  /** ensure() calls waiting for their turn: streaming starts nothing new
+   *  meanwhile, or it would take every turn before they get one. */
+  private waiting = 0;
+  private prefetched = new Set<string>();
   private last: Tile | null = null;
   private readonly group = new THREE.Group();
 
@@ -102,7 +101,7 @@ export class World {
     for (const [key, t] of Object.entries(man.tiles)) {
       this.tiles.set(key, new Tile(key, this.base + t.dir, t.world, null, t.v));
     }
-    this.viewLimit = COARSE_IN;
+    this.viewLimit = FULL_IN;
     // a build still under way may not have reached the spawn yet
     const sp = this.spawnPoint;
     if (!this.covers(sp.x, sp.z)) {
@@ -148,33 +147,43 @@ export class World {
 
   /** Load the tile at (x, z) in full before going on, e.g. to spawn there.
    *  False if no tile covers the spot. */
-  async ensure(x: number, z: number, onProgress?: (msg: string) => void): Promise<boolean> {
+  async ensure(x: number, z: number): Promise<boolean> {
     const tile = this.tileOf(x, z);
     if (!tile) return false;
+    this.waiting++;
     while (this.busy) await new Promise((r) => setTimeout(r, 30));
+    this.waiting--;
     this.busy = true;
+    this.raising = tile;
     try {
-      onProgress?.(t('boot.tile', { k: tile.key }));
       await this.raise(tile, 'full');
     } finally {
       this.busy = false;
+      this.raising = null;
     }
     return true;
   }
 
   /**
    * Called every frame: start the most urgent missing tile and drop far
-   * ones. One tile loads at a time - building one
+   * ones. While one is being built, the next one's files download.
+   *
+   * (ax, az) is where the player will be in a few seconds. It adds to the
+   * circle around (x, z), never replaces it: a tile counts by whichever of
+   * the two it is nearer, so the city ahead comes in early, and turning
+   * away costs at most a tile or two loaded for nothing. One tile loads at a time - building one
    * merges thousands of meshes on this thread - so the frame rate dips only
    * briefly each time.
    */
-  update(x: number, z: number): void {
+  update(x: number, z: number, ax = x, az = z): void {
     let want: { tile: Tile; level: 'coarse' | 'full'; d: number } | null = null;
     for (const tile of this.tiles.values()) {
-      const d = tile.distance(x, z);
+      // wholly in the fog: kept for when it comes close, but not drawn
+      tile.group.visible = tile.distance(x, z) <= this.viewLimit;
+      const d = Math.min(tile.distance(x, z), tile.distance(ax, az));
       if (tile.level === 'full' && d > FULL_OUT) {
-        this.onDropFull(tile);
         tile.dropFull();
+        this.prefetched.delete(`${tile.key}:full`);
       }
       if (tile.level !== 'none' && d > COARSE_OUT) {
         this.dispose(tile);
@@ -184,34 +193,38 @@ export class World {
       const behind = level === 'full' ? tile.level !== 'full'
         : level === 'coarse' ? tile.level === 'none' : false;
       // the full tiles first, nearest first; then coarse
-      if (level && behind && (!want || (level === 'full' && want.level === 'coarse')
+      if (level && behind && tile !== this.raising && (!want || (level === 'full' && want.level === 'coarse')
           || (level === want.level && d < want.d))) {
         want = { tile, level, d };
       }
     }
-    if (want && !this.busy) {
+    if (want && !this.busy && !this.waiting) {
       this.busy = true;
       const { tile, level } = want;
+      this.raising = tile;
       void this.raise(tile, level).catch((err) => {
         console.warn(`tile ${tile.key} failed to load, leaving it out`, err);
         this.dispose(tile);
         this.tiles.delete(tile.key);
-      }).finally(() => { this.busy = false; });
+      }).finally(() => { this.busy = false; this.raising = null; });
+    } else if (want && !LOW && !this.prefetched.has(`${want.tile.key}:${want.level}`)) {
+      // not on a phone: two tiles' downloads at once are a lot of memory there
+      this.prefetched.add(`${want.tile.key}:${want.level}`);
+      void want.tile.prefetch(want.level);
     }
   }
 
   /**
-   * How much of what should show around (x, z) is in: each tile in range at
-   * the detail its distance asks for. Done when done reaches total.
+   * How much of the city right around (x, z) is in: the tiles within
+   * START_IN, in full detail. Done when done reaches total. The rest goes on
+   * streaming in after that, nearest first.
    */
   progress(x: number, z: number): { done: number; total: number } {
     let done = 0, total = 0;
     for (const tile of this.tiles.values()) {
-      const d = tile.distance(x, z);
-      const level = d <= FULL_IN ? 'full' : d <= COARSE_IN ? 'coarse' : null;
-      if (!level) continue;
+      if (tile.distance(x, z) > Math.min(START_IN, FULL_IN)) continue;
       total++;
-      if (tile.level === 'full' || (level === 'coarse' && tile.level === 'coarse')) done++;
+      if (tile.level === 'full') done++;
     }
     return { done, total };
   }
@@ -224,14 +237,14 @@ export class World {
     }
     if (level === 'full' && tile.level === 'coarse') {
       await tile.loadFull(this.aniso);
-      this.onFull(tile);
     }
   }
 
   private dispose(tile: Tile): void {
-    if (tile.level === 'full') this.onDropFull(tile);
     if (this.last === tile) this.last = null;
     tile.dispose();
+    this.prefetched.delete(`${tile.key}:coarse`);
+    this.prefetched.delete(`${tile.key}:full`);
     // a fresh one in its place, should the player come back
     if (this.tiles.get(tile.key) === tile) {
       this.tiles.set(tile.key, new Tile(tile.key, tile.base, tile.box, tile.manifest, tile.version));
@@ -320,101 +333,11 @@ export class World {
     return this.height(x, z, y);
   }
 
-  /**
-   * Somewhere to stand near (x, z) that leads somewhere.
-   *
-   * The nearest passable cell is not enough. An address point or a game
-   * start often lies inside a block, and the ground nearest to it is then a
-   * Hinterhof: walkable, kept by the pipeline (it keeps every region over
-   * 400 m²), and walled in on all sides. So each candidate is flood-filled
-   * first, and only one whose region reaches OPEN_REACH metres away - or runs
-   * off the loaded tiles, where we cannot tell - is taken. Enclosed regions
-   * are ruled out whole and the search moves on outward.
-   *
-   * The way out has to be roomy (see roomy): a yard whose only exit is a gap
-   * of a metre or two counts as walled in. Such a gap is usually a gateway
-   * under the front building - open in the grid, drawn as a solid wall, and
-   * too narrow to find or walk through.
-   */
-  freeSpot(x: number, z: number, maxR = 120): XZ {
-    const first = this.nav.nearestPassable(x, z, maxR);
-    if (!first) return [x, z];
-    // a window of whole cells around (x, z), big enough for every search
-    const W = Math.ceil(maxR + OPEN_REACH + 2);
-    const side = 2 * W + 1;
-    const seen = new Uint8Array(side * side);
-    const cx = Math.floor(x) + 0.5, cz = Math.floor(z) + 0.5;
-    const at = (i: number, j: number) => (j + W) * side + (i + W);
-    let start = this.roomy(cx, cz) ? [0, 0] as [number, number]
-      : this.nextCandidate(cx, cz, maxR, W, side, seen, at);
-    for (let tries = 0; start && tries < 8; tries++) {
-      if (this.leadsOut(start, cx, cz, W, side, seen)) {
-        return start[0] === 0 && start[1] === 0 ? [x, z] : [cx + start[0], cz + start[1]];
-      }
-      start = this.nextCandidate(cx, cz, maxR, W, side, seen, at);
-    }
-    // nothing open within reach: the nearest ground is still better than a wall
-    return first;
-  }
-
-  /** Flood-fill from a cell; true once it gets OPEN_REACH away or off the map. */
-  private leadsOut(start: [number, number], cx: number, cz: number, W: number, side: number,
-                   seen: Uint8Array): boolean {
-    const [si, sj] = start;
-    const queue = [si, sj];
-    seen[(sj + W) * side + (si + W)] = 1;
-    const reach2 = OPEN_REACH * OPEN_REACH;
-    for (let q = 0; q < queue.length; q += 2) {
-      const i = queue[q], j = queue[q + 1];
-      if ((i - si) ** 2 + (j - sj) ** 2 >= reach2) return true;
-      for (const [di, dj] of STEPS) {
-        const ni = i + di, nj = j + dj;
-        if (ni < -W || ni > W || nj < -W || nj > W) return true;
-        const k = (nj + W) * side + (ni + W);
-        if (seen[k]) continue;
-        const px = cx + ni, pz = cz + nj;
-        if (!this.nav.contains(px, pz)) return true;
-        if (!this.roomy(px, pz)) continue;
-        seen[k] = 1;
-        queue.push(ni, nj);
-      }
-    }
-    return false;
-  }
-
-  /** Passable with a cell of room all round: ground three metres across. */
-  private roomy(x: number, z: number): boolean {
-    const c = this.nav.cell;
-    for (let dz = -c; dz <= c; dz += c) {
-      for (let dx = -c; dx <= c; dx += c) {
-        if (!this.nav.passable(x + dx, z + dz)) return false;
-      }
-    }
-    return true;
-  }
-
-  /** The nearest roomy cell not yet ruled out, spiralling outward. */
-  private nextCandidate(cx: number, cz: number, maxR: number, W: number, side: number,
-                        seen: Uint8Array,
-                        at: (i: number, j: number) => number): [number, number] | null {
-    for (let r = 1; r <= maxR; r++) {
-      const steps = Math.max(8, Math.round(2 * Math.PI * r));
-      for (let a = 0; a < steps; a++) {
-        const th = (a / steps) * Math.PI * 2;
-        const i = Math.round(Math.cos(th) * r), j = Math.round(Math.sin(th) * r);
-        if (Math.abs(i) > W || Math.abs(j) > W || seen[at(i, j)]) continue;
-        if (this.roomy(cx + i, cz + j)) return [i, j];
-      }
-    }
-    return null;
-  }
-
   /** Is a camera at this point inside something? Used to pull the third-person
    *  boom in rather than let it clip into a wall. */
   blocksCamera(x: number, y: number, z: number): boolean {
     if (y < this.height(x, z) + 0.55) return true;
-    if (this.tileAt(x, z)?.decks?.blocksCamera(x, y, z)) return true;
-    return this.nav.has(x, z, NavGrid.BUILDING);
+    return this.tileAt(x, z)?.decks?.blocksCamera(x, y, z) ?? false;
   }
 
   /* --- per frame --------------------------------------------------------- */
@@ -441,43 +364,6 @@ export class World {
       if (t.level === 'full') full++;
     }
     return { buildings, trees, tiles, full };
-  }
-}
-
-/** The navigation grids of every fully loaded tile, queried as one. */
-class WorldNav {
-  readonly cell = 1;
-  constructor(private readonly world: World) {}
-
-  private grid(x: number, z: number): NavGrid | null {
-    return this.world.tileAt(x, z)?.nav ?? null;
-  }
-
-  contains(x: number, z: number): boolean {
-    return this.grid(x, z)?.contains(x, z) ?? false;
-  }
-
-  has(x: number, z: number, flag: number): boolean {
-    return this.grid(x, z)?.has(x, z, flag) ?? false;
-  }
-
-  passable(x: number, z: number): boolean {
-    return this.has(x, z, NavGrid.WALKABLE);
-  }
-
-  /** Nearest passable spot, spiralling outward - across tile edges too. */
-  nearestPassable(x: number, z: number, maxR = 150): XZ | null {
-    if (this.passable(x, z)) return [x, z];
-    for (let r = this.cell; r <= maxR; r += this.cell) {
-      const steps = Math.max(8, Math.round((2 * Math.PI * r) / this.cell));
-      for (let a = 0; a < steps; a++) {
-        const th = (a / steps) * Math.PI * 2;
-        const px = x + Math.cos(th) * r;
-        const pz = z + Math.sin(th) * r;
-        if (this.passable(px, pz)) return [px, pz];
-      }
-    }
-    return null;
   }
 }
 

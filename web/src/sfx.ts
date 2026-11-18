@@ -141,21 +141,6 @@ export const sfx = {
   /** A clock tick; urgent for the last three seconds. */
   tick(urgent = false): void { tone(NOTE(urgent ? 91 : 84), 0, 0.08, 'square', urgent ? 0.2 : 0.12); },
   go(): void { tone(NOTE(79), 0, 0.12, 'square', 0.2); tone(NOTE(91), 0.12, 0.35, 'square', 0.2); },
-  /** The combo going up: a blip that climbs a step with each multiplier. */
-  combo(mult: number): void {
-    const n = 72 + [0, 0, 4, 7, 11, 12][Math.min(mult, 5)];
-    tone(NOTE(n), 0.04, 0.12, 'square', 0.13);
-    tone(NOTE(n + 12), 0.1, 0.18, 'square', 0.1);
-  },
-  comboLost(): void { tone(NOTE(67), 0, 0.12, 'triangle', 0.18); tone(NOTE(60), 0.1, 0.22, 'triangle', 0.18); },
-  /** A golden target: a sparkle running up. */
-  gold(): void {
-    for (let i = 0; i < 8; i++) tone(NOTE(84 + i * 2), i * 0.035, 0.25, 'sine', 0.22);
-    noise(0, 0.4, 0.12, 7000);
-  },
-  medal(): void {
-    [79, 84, 88].forEach((n, i) => tone(NOTE(n), i * 0.09, 0.35, 'triangle', 0.3));
-  },
   /** The course record broken: a fanfare. */
   record(): void {
     [72, 72, 72, 77, 81, 84].forEach((n, i) =>

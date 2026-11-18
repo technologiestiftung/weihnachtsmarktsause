@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import type { HUD } from './hud';
+import type { Overview } from './overview';
 import type { Player } from './player';
-import { num, t } from './i18n';
-import { distanceText, setDistance } from './pois';
-import { LOW } from './quality';
+import { t } from './i18n';
+import { distanceText, labelTexture, setDistance, type Label } from './labels';
 import { sfx } from './sfx';
 import type { World } from './world';
 
@@ -11,11 +11,10 @@ import type { World } from './world';
  * The Weihnachtsmarkt-Sause: a timed sleigh run over Berlin's Christmas
  * markets, from data/games/markets.json.
  *
- * The loop: markets around the start, a beacon over each, a compass to the
- * nearest, a clock, the sleigh, the snow and the night. On top sits an arcade layer, Crazy Taxi style: targets are worth
- * points, reaching the next one quickly builds a combo that multiplies them,
- * each target gives a few seconds back, and a few targets are golden. The
- * best score on the course is chased live, and medals mark how far a run got.
+ * The loop: markets around the start, a beacon over each, the name of the
+ * nearest, a clock, the sleigh, the snow and the night. What counts is how
+ * many markets get their presents; each one puts a few seconds back on the
+ * clock, and the best run from the start is chased live.
  */
 
 /** The modes; their texts are in i18n.ts under mode.<id>.* */
@@ -47,22 +46,14 @@ export function modeText(id: string, what: string, vars: Record<string, string |
   return t(`mode.${id}.${what}`, { dur: duration(LIMITS[id] ?? 90), ...vars });
 }
 
-/** What a mode says about how it went; the last line is its data source. */
-export interface Outcome {
+/** How a run went. */
+export interface Result {
   won: boolean;
   title: string;
-  lines: string[];
-}
-
-export interface Result extends Outcome {
-  /** Points. */
-  score: number;
   /** Targets reached. */
   count: number;
-  /** 0 for none, 1-3 for bronze to gold. */
-  medal: number;
-  combo: number;
-  golds: number;
+  /** Targets there were. */
+  of: number;
 }
 
 export interface GameHost {
@@ -81,36 +72,30 @@ export interface GameHost {
  */
 const GAME_PACE = 1.6;
 
-/** Points for a target, before the combo multiplier. */
-const BASE = 100;
-/** The combo multiplier stops growing here. */
-const MAX_MULT = 5;
-/** A golden target is worth this many times the points, and twice the time. */
-const GOLD_MULT = 3;
-const GOLD_COLOUR = '#ffd23f';
-export const MEDALS = ['🥉', '🥈', '🥇'];
-
 /**
- * Is the target at (x, z) golden? A hash of where it is, not a dice roll,
- * so everyone on a course sees the same golden targets and scores compare.
- * About one in fourteen.
+ * Every game starts here: central, but not on top of a market - the
+ * nearest, at the Gendarmenmarkt, is 800 m off, and four are within 1.1 km.
+ * Always the same, so every run on the board had the same chance.
  */
-function isGold(x: number, z: number): boolean {
-  let h = Math.imul(Math.round(x) | 0, 73856093) ^ Math.imul(Math.round(z) | 0, 19349663);
-  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
-  h ^= h >>> 16;
-  return (h >>> 0) % 100 < 7;
+const START_STATION = 'Friedrichstraße';
+
+/** Where every game starts; null where this build does not cover it. */
+export function startPoint(overview: Overview, world: World): [number, number] | null {
+  const s = overview.stations.find((st) => st.name === START_STATION);
+  return s && world.covers(s.x, s.z) ? [s.x, s.z] : null;
 }
+
+/** Every target's pin: a tree in warm gold. */
+const PIN = '🎄';
+const PIN_COLOUR = '#e8b23a';
 
 interface Spot {
   x: number;
   z: number;
   n: string;
   done: boolean;
-  /** How close counts as there; widened once the ground is known. */
+  /** How close counts as there. */
   reach: number;
-  snapped: boolean;
-  gold: boolean;
 }
 
 type RawPoint = [number, number, string, string, string?];
@@ -125,7 +110,7 @@ async function points(file: string): Promise<{ points: RawPoint[]; attribution: 
 }
 
 function spot(p: RawPoint, reach: number): Spot {
-  return { x: p[0], z: p[1], n: p[2], done: false, reach, snapped: false, gold: isGold(p[0], p[1]) };
+  return { x: p[0], z: p[1], n: p[2], done: false, reach };
 }
 
 /* --- beacons --------------------------------------------------------------- */
@@ -164,21 +149,22 @@ function icon(emoji: string, colour: string): THREE.Texture {
 
 const COLUMN = new THREE.CylinderGeometry(1, 1, 1, 12, 1, true).translate(0, 0.5, 0);
 
-/** A pin over the target and a column of light up into the sky, with how far
- *  it is underneath. Pins keep their size on screen and show through
- *  buildings: they are the objective. A golden one is bigger and wobbles. */
+/** A pin over the target and a column of light up into the sky, with the
+ *  market's name above and how far it is underneath. Pins keep their size on
+ *  screen and show through buildings: they are the objective. */
 class Beacon {
   readonly group = new THREE.Group();
   private readonly pin: THREE.Sprite;
   private readonly column: THREE.Mesh;
   private readonly dist: THREE.Sprite;
+  private readonly name: THREE.Sprite;
+  private readonly label: Label;
   private readonly pinHeight: number;
 
-  constructor(emoji: string, colour: string, height: number, width: number, private readonly gold: boolean) {
-    if (gold) width *= 1.8;
+  constructor(emoji: string, colour: string, height: number, width: number, name: string) {
     this.pin = new THREE.Sprite(new THREE.SpriteMaterial({
       map: icon(emoji, colour), depthTest: false, depthWrite: false,
-      transparent: true, sizeAttenuation: false,
+      transparent: true, sizeAttenuation: false, fog: false,
     }));
     this.pin.renderOrder = 30;
     this.pin.center.set(0.5, 0);
@@ -188,30 +174,34 @@ class Beacon {
     }));
     this.column.scale.set(width, height, width);
     this.dist = new THREE.Sprite(new THREE.SpriteMaterial({
-      depthTest: false, depthWrite: false, transparent: true, sizeAttenuation: false,
+      depthTest: false, depthWrite: false, transparent: true, sizeAttenuation: false, fog: false,
     }));
     this.dist.renderOrder = 30;
     this.dist.center.set(0.5, 1);
-    this.group.add(this.column, this.pin, this.dist);
+    this.label = labelTexture(name, colour, 0.8);
+    this.name = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: this.label.tex, depthTest: false, depthWrite: false, transparent: true, sizeAttenuation: false,
+      fog: false,
+    }));
+    this.name.renderOrder = 30;
+    this.group.add(this.column, this.pin, this.dist, this.name);
     this.pinHeight = Math.min(height, 6);
   }
 
-  set(emoji: string, colour: string): void {
-    (this.pin.material as THREE.SpriteMaterial).map = icon(emoji, colour);
-    (this.column.material as THREE.MeshBasicMaterial).color.set(colour);
-  }
-
   update(t: number, near: boolean, dist: number): void {
-    const s = (near ? 0.075 : 0.05) * (dist < 30 ? 0.8 : 1) * (this.gold ? 1.35 : 1);
+    const s = (near ? 0.075 : 0.05) * (dist < 30 ? 0.8 : 1);
     this.pin.scale.set(s, s, 1);
     this.pin.position.y = this.pinHeight + Math.sin(t * 2.4) * 0.4;
-    this.pin.material.rotation = this.gold ? Math.sin(t * 5) * 0.18 : 0;
     // the plate hangs under the pin, at about the pin's own scale
-    setDistance(this.dist, dist, s * 0.0085);
+    setDistance(this.dist, dist, s * 0.011);
     this.dist.position.y = this.pin.position.y;
+    // the name sits on top of the pin
+    const k = s * 0.012;
+    this.name.scale.set(this.label.w * k, this.label.h * k, 1);
+    this.name.center.set(0.5, -s / (this.label.h * k));
+    this.name.position.y = this.pin.position.y;
     // the column fades as you arrive, so it doesn't fill the screen
-    (this.column.material as THREE.MeshBasicMaterial).opacity =
-      Math.min(this.gold ? 0.5 : 0.32, dist / 160);
+    (this.column.material as THREE.MeshBasicMaterial).opacity = Math.min(0.32, dist / 160);
   }
 
   dispose(): void {
@@ -219,6 +209,8 @@ class Beacon {
     (this.column.material as THREE.Material).dispose();
     // the distance plates are shared; only this sprite's material goes
     this.dist.material.dispose();
+    this.name.material.dispose();
+    this.label.tex.dispose();
   }
 }
 
@@ -235,8 +227,8 @@ const RING_LIFE = 0.8;
 class Snow {
   readonly points: THREE.Points;
   private readonly pos: Float32Array;
-  /** Moved on the CPU every frame: a phone (quality.ts) gets fewer. */
-  private static readonly N = LOW ? 1500 : 5000;
+  /** Moved on the CPU every frame, so not too many. */
+  private static readonly N = 1500;
   private static readonly R = 120;
 
   constructor() {
@@ -309,24 +301,17 @@ export class Game {
   readonly info: ModeInfo;
   private readonly host: GameHost;
   private spots: Spot[] = [];
-  /** Points, combo and gold included. */
-  private score = 0;
   /** Targets reached. */
   private count = 0;
   private time = 0;
   private limit: number;
   state: 'countdown' | 'play' | 'over' = 'countdown';
   result: Result | null = null;
-  /** The best score on this course, set by main.ts, to chase while playing. */
+  /** The most markets reached from the start, set by main.ts, to chase while playing. */
   best: number | null = null;
-  private attribution = '';
 
-  /** Seconds the combo lasts after a target; the next one inside it builds it. */
-  private readonly comboWindow = 12;
   /** Seconds a target puts back on the clock, shrinking over a run. */
   private readonly timeBonus = 3;
-  /** Targets for 🥉 🥈 🥇. */
-  private readonly medals = [4, 8, 14];
   /** On top of GAME_PACE: the sleigh is quick already; much faster and the
    *  city cannot stream in. */
   private readonly pace = 0.8;
@@ -337,10 +322,6 @@ export class Game {
   private readonly beaconHeight = 320;
   private readonly beaconWidth = 5;
 
-  private combo = 0;
-  private comboLeft = 0;
-  private maxCombo = 0;
-  private golds = 0;
   private beaten = false;
   private countdown = 3.4;
   private lastCount = 4;
@@ -364,52 +345,18 @@ export class Game {
 
   /** Every market, filled by load(). */
   private pool: Spot[] = [];
-  /** A start is fair when at least `min` markets lie within `r` of it: over
-   *  the middle of a cluster. */
-  private readonly startRule = { r: 3000, min: 8 };
 
   async load(): Promise<void> {
     const d = await points('markets.json');
-    this.attribution = d.attribution;
     // from the air the whole city is in reach, so these are not limited to
     // the tiles loaded
-    this.pool = d.points.map((p) => spot(p, 60));
+    // generous: a market point can sit inside a block, under a roof
+    this.pool = d.points.map((p) => spot(p, 80));
   }
 
-  /**
-   * The start for a seed: one of the anchors with enough targets around
-   * it, chosen by the seed, then a seeded 250 m off it so the first target
-   * is not under your feet. The same seed and data give the same start,
-   * which is what makes scores comparable. Null where no market has
-   * enough others around it in the build.
-   */
-  choose(seed: number): [number, number] | null {
-    const w = this.host.world;
-    const { r, min } = this.startRule;
-    const grid = new Map<string, Spot[]>();
-    const cell = (x: number, z: number) => `${Math.floor(x / r)},${Math.floor(z / r)}`;
-    for (const s of this.pool) {
-      const k = cell(s.x, s.z);
-      const list = grid.get(k);
-      if (list) list.push(s); else grid.set(k, [s]);
-    }
-    const around = (a: Spot) => {
-      let n = 0;
-      const cx = Math.floor(a.x / r), cz = Math.floor(a.z / r);
-      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
-        for (const s of grid.get(`${cx + dx},${cz + dz}`) ?? []) {
-          if ((s.x - a.x) ** 2 + (s.z - a.z) ** 2 < r * r) n++;
-        }
-      }
-      return n;
-    };
-    const good = this.pool.filter((a) => w.covers(a.x, a.z) && around(a) >= min);
-    if (!good.length) return null;
-    const rnd = mulberry32(seed);
-    const a = good[Math.floor(rnd() * good.length)];
-    const th = rnd() * Math.PI * 2;
-    const x = a.x + Math.cos(th) * 250, z = a.z + Math.sin(th) * 250;
-    return w.covers(x, z) ? [x, z] : [a.x, a.z];
+  /** The start; null where this build does not cover it. */
+  startAt(): [number, number] | null {
+    return startPoint(this.host.hud.overview, this.host.world);
   }
 
   /** The targets: every market. */
@@ -421,8 +368,7 @@ export class Game {
   start(): void {
     this.fov0 = this.host.camera.fov;
     el('game').classList.add('on');
-    el('gTitle').textContent = `${this.info.emoji} ${this.text('title')}`;
-    this.banner(this.best ? t('game.chase', { n: num(this.best, 0) }) : this.text('controls'), 4);
+    this.banner(this.best ? t('game.chase', { n: this.text('unit', { n: this.best }) }) : this.text('controls'), 4);
     this.render(this.next());
     this.host.player.setSleigh(true);
     this.host.setNight(1);
@@ -453,9 +399,9 @@ export class Game {
     this.host.hud.markets = [];
   }
 
-  /** One line for the pause screen: time left and points. */
+  /** One line for the pause screen: time left and markets reached. */
   status(): string {
-    return t('pause.info', { time: fmt(this.limit - this.time), n: num(this.score, 0) });
+    return t('pause.info', { time: fmt(this.limit - this.time), n: this.text('unit', { n: this.count }) });
   }
 
   /** This mode's own strings. */
@@ -463,7 +409,7 @@ export class Game {
     return modeText(this.info.id, what, vars);
   }
 
-  /** The nearest target still to do, for the compass. */
+  /** The nearest target still to do, named in the panel. */
   private next(): Spot | null {
     const { x, z } = this.host.player.pos;
     let best: Spot | null = null, bd = Infinity;
@@ -501,52 +447,28 @@ export class Game {
   }
 
   /**
-   * Score a target: points times the combo, more for gold, time back on
-   * the clock, and every bit of noise that makes it feel like it. (x, y, z)
-   * is where the effects go off. Returns the points.
+   * Count a target: one more market, time back on the clock, and every bit
+   * of noise that makes it feel like it. (x, y, z) is where the effects go off.
    */
-  private award(s: Spot, x: number, y: number, z: number): number {
+  private award(x: number, y: number, z: number): void {
     this.count++;
-    this.combo = this.comboLeft > 0 ? this.combo + 1 : 1;
-    this.comboLeft = this.comboWindow;
-    this.maxCombo = Math.max(this.maxCombo, this.combo);
-    const mult = Math.min(MAX_MULT, this.combo);
-    const pts = BASE * mult * (s.gold ? GOLD_MULT : 1);
-    this.score += pts;
-    this.popup(`+${num(pts, 0)}`, s.gold ? 'gold big' : 'big');
-    if (mult > 1) {
-      this.popup(t('game.combo', { n: mult }), 'combo', 0.08);
-      sfx.combo(mult);
-    }
-    const secs = Math.max(1, Math.round(this.timeBonus * Math.max(0.4, 1 - this.count * 0.04)
-                                         * (s.gold ? 2 : 1)));
+    this.popup(`🎁 ${this.count}`, 'big');
+    const secs = Math.max(1, Math.round(this.timeBonus * Math.max(0.4, 1 - this.count * 0.04)));
     this.limit += secs;
     this.popup(t('game.time', { n: secs }), 'time', 0.16);
     const clock = el('gTime');
     clock.classList.remove('plus');
     void clock.offsetWidth;
     clock.classList.add('plus');
-    if (s.gold) {
-      this.golds++;
-      sfx.gold();
-      this.popup(t('game.gold', { n: GOLD_MULT }), 'gold', 0.24);
-      this.burst(x, y + 1, z, [0xffd23f, 0xfff3b0, 0xffb454], 22, 0.3);
-    }
-    const m = this.medals.indexOf(this.count);
-    if (m >= 0) {
-      this.popup(t('game.medal', { m: MEDALS[m] }), 'gold', 0.4);
-      sfx.medal();
-    }
-    this.ring(x, y, z, this.pin(s)[1]);
-    this.kick = s.gold ? 11 : 6;
-    this.flash(s.gold ? 'gold' : '');
+    this.ring(x, y, z, PIN_COLOUR);
+    this.kick = 6;
+    this.flash();
     this.checkRecord();
-    return pts;
   }
 
-  /** Passed the course's best? Say so, once. */
+  /** Passed the best run? Say so, once. */
   private checkRecord(): void {
-    if (this.beaten || !this.best || this.score <= this.best) return;
+    if (this.beaten || !this.best || this.count <= this.best) return;
     this.beaten = true;
     this.popup(t('game.record'), 'record', 0.3);
     sfx.record();
@@ -603,16 +525,6 @@ export class Game {
         const d = Math.hypot(s.x - p.pos.x, s.z - p.pos.z);
         if (d < s.reach && this.inReach()) this.reached(s);
       }
-      if (this.comboLeft > 0) {
-        this.comboLeft -= dt;
-        if (this.comboLeft <= 0) {
-          if (this.combo >= 2) {
-            this.popup(t('game.comboEnd'), 'dim');
-            sfx.comboLost();
-          }
-          this.combo = 0;
-        }
-      }
       // the last ten seconds count themselves down
       const sec = Math.ceil(this.limit - this.time);
       if (sec !== this.lastSec && sec <= 10 && sec > 0) sfx.tick(sec <= 3);
@@ -656,10 +568,10 @@ export class Game {
     css(lines, 'display', this.rushMix > 0.01 ? 'block' : 'none');
   }
 
-  /** Over a market counts only flying low enough to drop the presents. */
+  /** Over a market counts anywhere in its column of light, up to the top. */
   private inReach(): boolean {
     const p = this.host.player;
-    return p.pos.y - this.host.world.height(p.pos.x, p.pos.z) < 200;
+    return p.pos.y - this.host.world.height(p.pos.x, p.pos.z) < this.beaconHeight;
   }
 
   /** The boost is the rush: full while flying flat out, gone while braking. */
@@ -672,25 +584,16 @@ export class Game {
     s.done = true;
     sfx.jingle();
     const p = this.host.player;
-    this.award(s, p.pos.x, p.pos.y, p.pos.z);
+    this.award(p.pos.x, p.pos.y, p.pos.z);
     this.burst(p.pos.x, p.pos.y, p.pos.z, [0xc8102e, 0x2f8f4e, 0x2a62c9, 0xe8b23a], 10, 0.7);
     this.banner(this.text('hit', { name: s.n }));
-  }
-
-  /** 0 to 3: which medal the run has earned. */
-  private medal(): number {
-    return this.medals.filter((m) => this.count >= m).length;
   }
 
   private end(): void {
     if (this.state === 'over') return;
     this.state = 'over';
-    const outcome: Outcome = {
-      won: this.count > 0, title: this.text(this.count >= 8 ? 'won' : 'lost'),
-      lines: [this.text('line', { n: this.count, of: this.spots.length }), this.attribution],
-    };
-    this.result = { ...outcome, score: this.score, count: this.count, medal: this.medal(),
-                    combo: this.maxCombo, golds: this.golds };
+    this.result = { won: this.count > 0, title: this.text(this.count >= 8 ? 'won' : 'lost'),
+                    count: this.count, of: this.spots.length };
     if (this.result.won) sfx.win(); else sfx.lose();
   }
 
@@ -710,32 +613,16 @@ export class Game {
       b.dispose();
       this.beacons.delete(s);
     }
-    for (const [d, s] of near) {
-      // Points are where the data puts them - sometimes inside a building.
-      // Once the ground there is loaded, widen the reach by how far the
-      // nearest walkable spot is, so every target can be reached.
-      if (!s.snapped && d < 300 && w.tileAt(s.x, s.z)?.level === 'full') {
-        const at = w.nav.nearestPassable(s.x, s.z, 40);
-        s.reach += at ? Math.hypot(at[0] - s.x, at[1] - s.z) : 30;
-        s.snapped = true;
-      }
-      const [e, c] = this.pin(s);
+    for (const [, s] of near) {
       let b = this.beacons.get(s);
       if (!b) {
-        b = new Beacon(e, c, this.beaconHeight, this.beaconWidth, s.gold);
+        b = new Beacon(PIN, PIN_COLOUR, this.beaconHeight, this.beaconWidth, s.n);
         this.beacons.set(s, b);
         this.group.add(b.group);
-      } else {
-        b.set(e, c);
       }
       b.group.position.set(s.x, w.height(s.x, s.z), s.z);
     }
-    this.host.hud.marks = near.map(([, s]) => ({ x: s.x, z: s.z, colour: this.pin(s)[1] }));
-  }
-
-  /** The pin as drawn: a tree, in gold for a golden target. */
-  private pin(s: Spot): [string, string] {
-    return ['🎄', s.gold ? GOLD_COLOUR : '#e8b23a'];
+    this.host.hud.marks = near.map(([, s]) => ({ x: s.x, z: s.z, colour: PIN_COLOUR }));
   }
 
   private updateParticles(dt: number): void {
@@ -768,16 +655,10 @@ export class Game {
     }
   }
 
-  /** What is still to aim for: the record, the next medal. */
+  /** What is still to aim for: the best run so far. */
   private goalLine(): string {
-    const parts: string[] = [];
-    if (this.best) {
-      parts.push(this.beaten ? t('game.beaten') : t('game.best', { n: num(this.best, 0) }));
-    }
-    const i = this.medals.findIndex((m) => this.count < m);
-    parts.push(i < 0 ? t('game.allMedals')
-      : t('game.next', { m: MEDALS[i], n: this.medals[i] - this.count }));
-    return parts.join(' · ');
+    if (!this.best) return '';
+    return this.beaten ? t('game.beaten') : t('game.best', { n: this.text('unit', { n: this.best }) });
   }
 
   private render(nxt: Spot | null): void {
@@ -786,51 +667,14 @@ export class Game {
     const clock = el('gTime');
     put(clock, fmt(left));
     clock.classList.toggle('low', left < 30 && this.state === 'play');
-    put(el('gPoints'), num(this.score, 0));
-    const mult = Math.min(MAX_MULT, this.combo);
-    const multEl = el('gMult');
-    put(multEl, mult > 1 ? `×${mult}` : '');
-    multEl.dataset.n = String(mult);
-    // bars scale rather than resize: a transform needs no layout
-    css(el('gCombo').firstElementChild as HTMLElement, 'transform',
-        `scaleX(${(Math.round(Math.max(0, this.comboLeft / this.comboWindow) * 50) / 50)})`);
-    put(el('gScore'), this.text('score', { n: this.count }), true);
+    put(el('gPoints'), String(this.count));
+    put(el('gScore'), this.text('score', { n: this.count, of: this.spots.length }));
     put(el('gGoal'), this.goalLine());
-    const arrow = el('gArrow');
-    if (nxt) {
-      const dx = nxt.x - p.pos.x, dz = nxt.z - p.pos.z;
-      const s = Math.sin(p.yaw), c = Math.cos(p.yaw);
-      const fwd = -dx * s - dz * c;
-      const right = dx * c - dz * s;
-      css(arrow, 'transform', `rotate(${Math.round(Math.atan2(right, fwd) * 50) / 50}rad)`);
-      css(arrow, 'visibility', '');
-      put(el('gTarget'), `${nxt.gold ? '✨ ' : ''}${nxt.n} · ${distanceText(Math.hypot(dx, dz))}`);
-    } else {
-      css(arrow, 'visibility', 'hidden');
-      put(el('gTarget'), t(this.spots.length ? 'game.none' : 'game.noTargets'));
-    }
+    put(el('gTarget'), nxt ? `${nxt.n} · ${distanceText(Math.hypot(nxt.x - p.pos.x, nxt.z - p.pos.z))}`
+      : t(this.spots.length ? 'game.none' : 'game.noTargets'));
   }
 }
 
 export function makeGame(id: string, host: GameHost): Game {
   return new Game(MODE_INFO.find((m) => m.id === id)!, host);
 }
-
-/* --- seeds and best scores ----------------------------------------------------- */
-
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/** Today's course: the same start for everyone playing today. */
-export function dailySeed(d = new Date()): number {
-  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
-}
-

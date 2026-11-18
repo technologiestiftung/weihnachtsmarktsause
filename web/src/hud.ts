@@ -4,7 +4,6 @@ import { onLang, t } from './i18n';
 import { LOW } from './quality';
 import type { World } from './world';
 import { Overview } from './overview';
-import { distanceText } from './pois';
 
 export interface RenderInfo {
   calls: number;
@@ -22,8 +21,7 @@ function el<T extends HTMLElement = HTMLElement>(id: string): T {
  *
  * The map is of Berlin (overview.ts): the districts' outlines and the
  * Christmas markets, north up. M steps from the whole city to the country
- * round the player and closer still. Under it, the district you are over
- * and what is near.
+ * round the player and closer still. Under it, the district you are over.
  */
 export class HUD {
   readonly world: World;
@@ -41,7 +39,7 @@ export class HUD {
   private readonly spans = [0, 10000, 3000];
   private zoom = 0;
   readonly overview: Overview;
-  /** The district and what is near, as last written under the map. */
+  /** The district, as last written under the map. */
   private where = '';
   private hintTimer = 0;
   /** Readouts are written a few times a second, and only when they change:
@@ -64,13 +62,11 @@ export class HUD {
     this.write(el('maplabel'), `${this.where}<span>${t('hud.zoom', { n: span ? `${span / 1000} km` : t('hud.zoomAll') })}</span>`);
   }
 
-  /** The district under the player, and the nearest landmark or station. */
+  /** The district under the player. */
   private locate(x: number, z: number): void {
     const d = this.overview.districtAt(x, z);
-    const near = this.overview.nearest(x, z);
     const esc = (s: string) => s.replace(/[&<>]/g, (c) => `&#${c.charCodeAt(0)};`);
-    this.where = `<b>${esc(d?.name ?? 'Berlin')}</b>`
-      + (near ? `<small>${esc(t('hud.near', { name: near.name, d: distanceText(near.d) }))}</small>` : '');
+    this.where = `<b>${esc(d?.name ?? 'Berlin')}</b>`;
     this.updateLabel();
   }
 

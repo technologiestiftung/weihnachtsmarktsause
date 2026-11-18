@@ -8,37 +8,20 @@
  *    any canvas premultiplies it, wiping the other channels where there is
  *    no water. The pipeline writes plain 8-bit PNGs (raster.write_png), so
  *    decoding them takes a DecompressionStream and the row filters.
- *  - "map": the minimap, 1 px = 1 m: ground cover, building footprints from
- *    the navigation grid, a hint of relief. A million pixels touched one by
- *    one - on a phone that was a visible hitch every time a tile came close.
- */
+ * */
 
 export interface CoverJob {
   kind: 'cover';
-  png: Blob;
+  png: ArrayBuffer;
   /** Output pixels per input pixel: 1, 1/2, 1/8 ... */
   scale: number;
-}
-
-export interface MapJob {
-  kind: 'map';
-  png: Blob;
-  coverMin: [number, number];
-  coverRes: number;
-  navMin: [number, number];
-  navCell: number;
-  nx: number;
-  nz: number;
-  terrain: Uint16Array;
-  flags: Uint8Array;
-  buildingFlag: number;
 }
 
 export interface Raster { data: Uint8Array<ArrayBuffer>; w: number; h: number; channels: number }
 
 /** An 8-bit grey or RGBA PNG as raw bytes, exactly as stored. */
-async function decodePng(blob: Blob): Promise<Raster> {
-  const b = new Uint8Array(await blob.arrayBuffer());
+async function decodePng(buf: ArrayBuffer): Promise<Raster> {
+  const b = new Uint8Array(buf);
   const dv = new DataView(b.buffer);
   let w = 0, h = 0, channels = 4;
   const idat: Uint8Array<ArrayBuffer>[] = [];
@@ -117,49 +100,11 @@ async function cover(job: CoverJob): Promise<Raster> {
   return shrink(png, factor);       // factor 1: a straight copy to RGBA
 }
 
-async function map(j: MapJob): Promise<ImageBitmap> {
-  const { nx, nz } = j;
-  const cv = await decodePng(j.png);
-  const ch = cv.channels;
-  let lo = Infinity, hi = -Infinity;
-  for (let k = 0; k < j.terrain.length; k += 13) {
-    lo = Math.min(lo, j.terrain[k]);
-    hi = Math.max(hi, j.terrain[k]);
-  }
-  const out = new ImageData(nx, nz);
-  const d = out.data;
-  for (let r = 0; r < nz; r++) {
-    // the cover pixel under this metre's centre; the mask may reach past the tile
-    const cz = Math.floor((j.navMin[1] + (r + 0.5) * j.navCell - j.coverMin[1]) / j.coverRes);
-    for (let c = 0; c < nx; c++) {
-      const k = r * nx + c, o = k * 4;
-      const cx = Math.floor((j.navMin[0] + (c + 0.5) * j.navCell - j.coverMin[0]) / j.coverRes);
-      const inside = cx >= 0 && cz >= 0 && cx < cv.w && cz < cv.h;
-      const q = (cz * cv.w + cx) * ch;
-      const at = (i: number) => (inside && i < ch ? cv.data[q + i] : 0);
-      const rel = (j.terrain[k] - lo) / Math.max(1, hi - lo);
-      let R = 44 + rel * 30, G = 46 + rel * 30, B = 50 + rel * 30;
-      if (at(2) > 110) { R = 46; G = 74; B = 44; }
-      if (at(1) > 110) { R = 92; G = 90; B = 84; }
-      if (at(0) > 110) { R = 104; G = 106; B = 112; }
-      if (at(3) > 110) { R = 40; G = 78; B = 112; }
-      if (j.flags[k] & j.buildingFlag) { R = 205; G = 196; B = 178; }
-      d[o] = R; d[o + 1] = G; d[o + 2] = B; d[o + 3] = 238;
-    }
-  }
-  return createImageBitmap(out);
-}
-
-self.onmessage = async (e: MessageEvent<CoverJob | MapJob>) => {
+self.onmessage = async (e: MessageEvent<CoverJob>) => {
   const post = (self as unknown as Worker).postMessage.bind(self);
   try {
-    if (e.data.kind === 'cover') {
-      const r = await cover(e.data);
-      post({ ok: r }, [r.data.buffer]);
-    } else {
-      const bmp = await map(e.data);
-      post({ ok: bmp }, [bmp]);
-    }
+    const r = await cover(e.data);
+    post({ ok: r }, [r.data.buffer]);
   } catch (err) {
     post({ error: String(err) });
   }

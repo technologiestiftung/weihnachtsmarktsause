@@ -8,6 +8,11 @@
  *   npm run bench:games -- --desktop              # 1280x720, mouse and keyboard
  *   npm run bench:games -- --seconds 30
  *   npm run bench:games -- --shots out/           # a screenshot of each game
+ *   npm run bench:games -- --desktop --cpu 4 --net 4g   # an old laptop on mobile data
+ *
+ * --cpu slows the CPU down by that factor (4 by default as a phone, 1 as a
+ * desktop); --net 4g or --net 3g limits download speed and adds latency, so
+ * the loading time says something about a real connection.
  *
  * An autopilot holds "forward + sprint" through the same key events the
  * touch joystick sends and steers at the compass target, so the game's own
@@ -35,17 +40,18 @@ const only = opt('--only', 'markets').split(',');
 const shots = opt('--shots', '');
 const profileName = desktop ? 'desktop' : landscape ? 'phone-landscape' : 'phone';
 const out = opt('--out', `games-${profileName}.json`);
+const cpu = Number(opt('--cpu', desktop ? '1' : '4'));
+const NETS: Record<string, { latency: number; mbit: number }> = { '4g': { latency: 60, mbit: 12 }, '3g': { latency: 150, mbit: 1.6 } };
+const net = NETS[opt('--net', '')] ?? null;
 const chromePath = process.env.CHROME
   ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const PORT = 9335;
-/** One course per mode, the same every run. */
-const SEED = 20261029;
+const PORT = 9347;
 
 const chrome = spawn(chromePath, [
   '--headless=new', `--user-data-dir=${join(tmpdir(), 'weihnachtsmarktsause-games-bench')}`,
   `--remote-debugging-port=${PORT}`, '--window-size=1280,720', '--use-angle=metal',
   '--disable-gpu-vsync', '--disable-frame-rate-limit', '--enable-precise-memory-info',
-  '--autoplay-policy=no-user-gesture-required', '--js-flags=--expose-gc', 'about:blank'], { stdio: 'ignore' });
+  '--autoplay-policy=no-user-gesture-required', '--mute-audio', '--js-flags=--expose-gc', 'about:blank'], { stdio: 'ignore' });
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 interface Target { type: string; webSocketDebuggerUrl: string }
@@ -53,8 +59,10 @@ interface Reply { id?: number; method?: string; params?: { encodedDataLength: nu
                   result?: { result?: { value?: unknown }; metrics?: { name: string; value: number }[];
                              data?: string } }
 let targets: Target[] | undefined;
-for (let i = 0; i < 50 && !targets; i++) {
-  try { targets = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json(); } catch { await sleep(200); }
+// Chrome answers before it has opened its first page
+for (let i = 0; i < 50 && !targets?.some((t) => t.type === 'page'); i++) {
+  try { targets = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json(); } catch { /* not up yet */ }
+  await sleep(200);
 }
 const ws = new WebSocket(targets!.find((t) => t.type === 'page')!.webSocketDebuggerUrl);
 await new Promise((r) => ws.addEventListener('open', r));
@@ -83,8 +91,15 @@ if (!desktop) {
   await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 3, mobile: true });
   // a finger: (pointer: coarse) matches, so the game shows its touch controls
   await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
-  await send('Emulation.setCPUThrottlingRate', { rate: 4 });
 }
+if (cpu > 1) await send('Emulation.setCPUThrottlingRate', { rate: cpu });
+if (net) {
+  const bps = (net.mbit * 1e6) / 8;
+  await send('Network.emulateNetworkConditions',
+    { offline: false, latency: net.latency, downloadThroughput: bps, uploadThroughput: bps / 4 });
+}
+// a first visit: nothing in the cache
+await send('Network.setCacheDisabled', { cacheDisabled: true });
 
 await send('Page.navigate', { url });
 for (let i = 0; i < 400; i++) {
@@ -156,11 +171,18 @@ const memory = `(() => {
     const im = v.image, w = v.userData?.size?.[0] || im?.width || 0, h = v.userData?.size?.[1] || im?.height || 0;
     tex += w * h * (v.isCompressedTexture || v.format === 1028 ? 1 : 4) * (v.generateMipmaps === false && !v.mipmaps?.length ? 1 : 1.33);
   };
+  const byName = {};
   b.scene.traverse((o) => {
     if (o.geometry && !geometries.has(o.geometry)) {
       geometries.add(o.geometry);
-      for (const a of Object.values(o.geometry.attributes)) geo += a.array?.byteLength ?? a.count * a.itemSize * 4;
-      if (o.geometry.index) geo += o.geometry.index.array?.byteLength ?? o.geometry.index.count * 4;
+      let g = 0;
+      for (const a of Object.values(o.geometry.attributes)) g += a.array?.byteLength ?? a.count * a.itemSize * 4;
+      if (o.geometry.index) g += o.geometry.index.array?.byteLength ?? o.geometry.index.count * 4;
+      // instanced copies cost their matrices, not their shape again
+      if (o.isInstancedMesh) g += o.count * 64;
+      geo += g;
+      const name = o.name || o.parent?.name || o.type;
+      byName[name] = (byName[name] ?? 0) + g;
     }
     for (const m of [].concat(o.material || [])) {
       for (const v of Object.values(m)) addTex(v);
@@ -170,7 +192,9 @@ const memory = `(() => {
   const info = b.renderer.info.memory;
   return { textureMB: Math.round(tex / 1048576), geometryMB: Math.round(geo / 1048576),
            heapMB: Math.round(performance.memory.usedJSHeapSize / 1048576),
-           glTextures: info.textures, glGeometries: info.geometries, tiles: b.world.stats };
+           glTextures: info.textures, glGeometries: info.geometries, tiles: b.world.stats,
+           geometryByName: Object.fromEntries(Object.entries(byName).map(([k, v]) => [k, Math.round(v / 1048576)])
+             .filter(([, v]) => v > 0).sort((x, y) => y[1] - x[1])) };
 })()`;
 interface Memory { textureMB: number; geometryMB: number; heapMB: number; glTextures: number; glGeometries: number }
 
@@ -178,7 +202,11 @@ interface Run {
   mode: string; frames: number; fps: number; p50ms: number; p95ms: number; worstMs: number;
   framesOver50ms: number; drawCalls: number; trianglesM: number;
   gameMsPerFrame: number; scriptMs: number; styleMs: number; layoutMs: number; layouts: number;
-  heapMB: number; downloadedMB: number; reached: number; score: number; hops: number; metres: number;
+  heapMB: number; downloadedMB: number; reached: number; hops: number; metres: number;
+  /** From pressing start to the countdown, and what was downloaded meanwhile. */
+  loadSeconds: number; loadMB: number; timeline: [number, number, number, number][];
+  /** Tiles whose buildings appeared while flying, and how many of them inside the fog's far end. */
+  tilesIn: number; poppedInView: number; nearestPopM: number;
   /** The highest total seen while playing: textures + geometry + heap. */
   peakMB: number; peak: Memory;
   /** The heap after a forced collection at the end: what is really held,
@@ -189,14 +217,21 @@ const runs: Run[] = [];
 
 for (const mode of only) {
   await ev(`(() => { const b = window.__berlin; b.game() && b.game().state !== 'over' && b.game().end?.(false); return 1; })()`);
-  // pick from the menu as a player would, on a fixed course
-  await ev(`(() => { const m = window.__berlin.menu; m.show(); m.pick({ id: '${mode}', seed: ${SEED} }); return 1; })()`);
-  for (let i = 0; i < 300; i++) {
-    if (await ev<boolean>("!!window.__berlin.game() && window.__berlin.game().state === 'play'")) break;
-    // the loading screen holds until the player says go
-    await ev(`(() => { const b = document.querySelector('#gameLoading.ready #glPlay'); b?.click(); return 1; })()`);
+  // pick from the menu as a player would
+  const lb0 = bytes, l0 = Date.now();
+  await ev(`(() => { const m = window.__berlin.menu; m.show(); m.pick({ id: '${mode}' }); return 1; })()`);
+  // which tiles are in when, while it loads: [seconds, full, all, MB]
+  const timeline: [number, number, number, number][] = [];
+  for (let i = 0; i < 1500; i++) {
+    if (await ev<boolean>("!!window.__berlin.game() && window.__berlin.game().state !== 'countdown'")) break;
+    if (i % 5 === 0) {
+      const st = await ev<{ full: number; tiles: number }>('window.__berlin.world.stats');
+      timeline.push([+((Date.now() - l0) / 1000).toFixed(1), st.full, st.tiles, +((bytes - lb0) / 1048576).toFixed(1)]);
+    }
     await sleep(200);
   }
+  // the countdown is 3.4 s of it
+  const loadSeconds = +((Date.now() - l0) / 1000 - 3.4).toFixed(1), loadMB = +((bytes - lb0) / 1048576).toFixed(1);
   // time the game's own update from here on
   await ev(`(() => {
     const g = window.__berlin.game(), u = g.update.bind(g);
@@ -204,6 +239,17 @@ for (const mode of only) {
     window.__gameMs = 0; window.__frames.length = 0; window.__pilot.on = true; window.__pilot.hops = 0;
     window.__startPos = [window.__berlin.player.pos.x, window.__berlin.player.pos.z]; window.__metres = 0;
     window.__lastPos = window.__startPos.slice();
+    // how far away each tile is when its buildings appear: under the fog's
+    // far end (World.viewLimit) they pop in where they can be seen
+    window.__pops = [];
+    const seen = new Set([...window.__berlin.world.tiles.values()].filter((t) => t.level === 'full').map((t) => t.key));
+    window.__popTimer = setInterval(() => {
+      const w = window.__berlin.world, p = window.__berlin.player.pos;
+      for (const t of w.tiles.values()) {
+        if (t.level === 'full' && !seen.has(t.key)) { seen.add(t.key); window.__pops.push(Math.round(t.distance(p.x, p.z))); }
+        if (t.level !== 'full') seen.delete(t.key);
+      }
+    }, 100);
     window.__odo = setInterval(() => {
       const p = window.__berlin.player.pos;
       window.__metres += Math.hypot(p.x - window.__lastPos[0], p.z - window.__lastPos[1]);
@@ -235,10 +281,11 @@ for (const mode of only) {
   const m1 = await metrics();
   const liveHeapMB = await ev<number>('(() => { window.gc(); return Math.round(performance.memory.usedJSHeapSize / 1048576); })()');
   const f = await ev<[number, number, number][]>('window.__frames.slice()');
-  const state = await ev<{ score: number; count: number; gameMs: number; hops: number; heap: number; metres: number }>(`(() => {
-    const g = window.__berlin.game(); window.__pilot.on = false; clearInterval(window.__odo);
+  const state = await ev<{ count: number; gameMs: number; hops: number; heap: number; metres: number;
+                          pops: number[]; viewLimit: number }>(`(() => {
+    const g = window.__berlin.game(); window.__pilot.on = false; clearInterval(window.__odo); clearInterval(window.__popTimer);
     for (const code of ['KeyW', 'ShiftLeft']) dispatchEvent(new KeyboardEvent('keyup', { code, bubbles: true }));
-    return { score: g?.score ?? 0, count: g?.count ?? 0, gameMs: window.__gameMs, hops: window.__pilot.hops,
+    return { pops: window.__pops, viewLimit: window.__berlin.world.viewLimit, count: g?.count ?? 0, gameMs: window.__gameMs, hops: window.__pilot.hops,
              heap: performance.memory.usedJSHeapSize, metres: window.__metres };
   })()`);
   const dt = f.slice(1).map((x, i) => x[0] - f[i][0]).sort((a, b) => a - b);
@@ -256,14 +303,16 @@ for (const mode of only) {
     scriptMs: per('ScriptDuration'), styleMs: per('RecalcStyleDuration'), layoutMs: per('LayoutDuration'),
     layouts: Math.round((m1.LayoutCount - m0.LayoutCount) / Math.max(1, f.length) * 10) / 10,
     heapMB: Math.round(state.heap / 1048576), downloadedMB: +((bytes - b0) / 1048576).toFixed(1),
-    reached: state.count, score: state.score, hops: state.hops, metres: Math.round(state.metres),
+    reached: state.count, hops: state.hops, metres: Math.round(state.metres), loadSeconds, loadMB, timeline,
+    tilesIn: state.pops.length, poppedInView: state.pops.filter((d) => d < state.viewLimit).length,
+    nearestPopM: state.pops.length ? Math.min(...state.pops) : 0,
     peakMB, peak: peak!, liveHeapMB,
   });
   const r = runs[runs.length - 1];
-  console.log(`${mode.padEnd(8)} ${String(r.fps).padStart(4)} fps  p95 ${r.p95ms} ms  worst ${r.worstMs} ms  >50ms ${r.framesOver50ms}  ` +
+  console.log(`${mode.padEnd(8)} load ${r.loadSeconds} s (${r.loadMB} MB)  ${String(r.fps).padStart(4)} fps  p95 ${r.p95ms} ms  worst ${r.worstMs} ms  >50ms ${r.framesOver50ms}  ` +
     `calls ${r.drawCalls}  tris ${r.trianglesM}M  game ${r.gameMsPerFrame} ms  ` +
     `script ${r.scriptMs} style ${r.styleMs} layout ${r.layoutMs} ms/frame (${r.layouts} layouts)  ` +
-    `dl ${r.downloadedMB} MB  ${r.reached} reached, ${r.metres} m, ${r.hops} hops  ` +
+    `pop-in ${r.poppedInView}/${r.tilesIn} (nearest ${r.nearestPopM} m)  dl ${r.downloadedMB} MB  ${r.reached} reached, ${r.metres} m, ${r.hops} hops  ` +
     `PEAK ${r.peakMB} MB (tex ${r.peak.textureMB} geo ${r.peak.geometryMB} heap ${r.peak.heapMB}), live heap ${r.liveHeapMB} MB`);
 }
 

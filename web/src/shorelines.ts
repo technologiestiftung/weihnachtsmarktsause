@@ -45,7 +45,6 @@ export class Shorelines {
     };
     const land = new THREE.Mesh(geometry(this.data.top), ground);
     land.name = 'bank tops';
-    land.receiveShadow = true;
     freeOnUpload(land.geometry);
     group.add(land);
     if (this.data.walls.i.length) {
@@ -59,7 +58,6 @@ export class Shorelines {
       g.setAttribute('surfaceType', new THREE.Float32BufferAttribute(new Float32Array(n).fill(5), 1));
       const walls = new THREE.Mesh(g, bridgeMaterial());
       walls.name = 'quays';
-      walls.castShadow = walls.receiveShadow = true;
       freeOnUpload(g);
       group.add(walls);
     }

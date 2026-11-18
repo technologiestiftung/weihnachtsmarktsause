@@ -52,56 +52,6 @@ export class TerrainField {
   }
 }
 
-/**
- * "BTN1" navigation grid covering the whole world at 1 m.
- *
- * Walkable means: not inside a building footprint, a tree trunk or water, and
- * not too steep on the laser-scan terrain. The other flag bits (drivable,
- * open sky) are not read here.
- */
-export class NavGrid {
-  static readonly WALKABLE = 1;
-  static readonly BUILDING = 16;
-
-  readonly minX: number;
-  readonly minZ: number;
-  readonly cell: number;
-  readonly nx: number;
-  readonly nz: number;
-  readonly terrain: Uint16Array;
-  readonly flags: Uint8Array;
-
-  constructor(buf: ArrayBuffer) {
-    if (magicOf(buf) !== 'BTN1') throw new Error('bad nav grid: ' + magicOf(buf));
-    const dv = new DataView(buf);
-    this.minX = dv.getFloat32(4, true);
-    this.minZ = dv.getFloat32(8, true);
-    this.cell = dv.getFloat32(12, true);
-    this.nx = dv.getUint32(16, true);
-    this.nz = dv.getUint32(20, true);
-    // bytes 24-31 scale the terrain to metres; only its shape is used here
-    const n = this.nx * this.nz;
-    this.terrain = new Uint16Array(buf, 32, n);
-    this.flags = new Uint8Array(buf, 32 + n * 2, n);
-  }
-
-  index(x: number, z: number): number {
-    const c = Math.floor((x - this.minX) / this.cell);
-    const r = Math.floor((z - this.minZ) / this.cell);
-    if (c < 0 || c >= this.nx || r < 0 || r >= this.nz) return -1;
-    return r * this.nx + c;
-  }
-
-  contains(x: number, z: number): boolean {
-    return this.index(x, z) >= 0;
-  }
-
-  has(x: number, z: number, flag: number): boolean {
-    const k = this.index(x, z);
-    return k >= 0 && (this.flags[k] & flag) !== 0;
-  }
-}
-
 /** One tree from the Berlin cadastre, sizes in metres. */
 export interface Tree {
   x: number;
@@ -115,23 +65,6 @@ export interface Tree {
 }
 
 /** "BTR1" tree list - see pipeline/trees.py. */
-/** One placed copy of a street furniture prototype (pipeline/street_furniture.py). */
-export interface Prop { x: number; z: number; y: number; yaw: number; kind: number }
-
-export function parseProps(buf: ArrayBuffer): Prop[] {
-  if (magicOf(buf) !== 'BPR1') throw new Error('bad props file');
-  const n = new DataView(buf).getUint32(4, true);
-  let o = 8;
-  const f32 = () => { const a = new Float32Array(buf, o, n); o += n * 4; return a; };
-  const xs = f32(), zs = f32(), ys = f32(), yaws = f32();
-  const kinds = new Uint16Array(buf, o, n);
-  const out: Prop[] = [];
-  for (let i = 0; i < n; i++) {
-    out.push({ x: xs[i], z: zs[i], y: ys[i], yaw: yaws[i], kind: kinds[i] });
-  }
-  return out;
-}
-
 export function parseTrees(buf: ArrayBuffer): Tree[] {
   if (magicOf(buf) !== 'BTR1') throw new Error('bad tree file');
   const n = new DataView(buf).getUint32(4, true);

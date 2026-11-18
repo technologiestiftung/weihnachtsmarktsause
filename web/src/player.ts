@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WALK_INSET, type World } from './world';
+import type { World } from './world';
 
 // R / F tilt the view, so the mouse is optional entirely
 const PITCH_RATE = 1.4;
@@ -35,9 +35,7 @@ export class Player {
   }
 
   spawn(x: number, z: number): void {
-    const w = this.world;
-    const [fx, fz] = w.freeSpot(x, z, 200);
-    this.pos.set(fx, w.height(fx, fz), fz);
+    this.pos.set(x, this.world.height(x, z), z);
   }
 
   /** Q and E turn left and right. */
@@ -98,26 +96,13 @@ export class Player {
     } else {
       this.sleighSpeed = 0;
       this.lean = 0;
-      this.settle(200);
+      this.settle();
     }
   }
 
-  /**
-   * Come to rest on whatever is below: a bridge deck where you are over one,
-   * otherwise the nearest ground within maxR metres that leads out of the
-   * block, not into a walled-in courtyard.
-   */
-  private settle(maxR: number): void {
-    const w = this.world;
-    const y = w.height(this.pos.x, this.pos.z, this.pos.y);
-    if (w.deckAt(this.pos.x, this.pos.z, y, WALK_INSET)) {
-      this.pos.y = y;
-      return;
-    }
-    const [x, z] = w.freeSpot(this.pos.x, this.pos.z, maxR);
-    this.pos.x = x;
-    this.pos.z = z;
-    this.pos.y = w.height(this.pos.x, this.pos.z);
+  /** Come to rest on whatever is below. */
+  private settle(): void {
+    this.pos.y = this.world.height(this.pos.x, this.pos.z, this.pos.y);
   }
 
   applyCamera(cam: THREE.PerspectiveCamera, dt = 1 / 60): THREE.Vector3 {

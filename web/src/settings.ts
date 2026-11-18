@@ -117,7 +117,7 @@ export class Settings {
         setAudio({ [k]: Number(input.value) / 100 });
       });
       // a sample of what the effects now sound like
-      if (k !== 'music') input.addEventListener('change', () => sfx.combo(2));
+      if (k !== 'music') input.addEventListener('change', () => sfx.jingle());
       row.append(h('span', 'lbl', t(`settings.${k}`)), input, val);
       return { row, input };
     });
