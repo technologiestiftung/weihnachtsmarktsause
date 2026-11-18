@@ -56,7 +56,7 @@ export function labelTexture(text: string, colour: string, scale = 1, sub = ''):
   const g = c.getContext('2d')!;
   g.font = font;
   g.textBaseline = 'middle';
-  // dark plate keeps the text legible over any photograph underneath
+  // dark plate keeps the text legible over whatever is underneath
   g.fillStyle = 'rgba(14,16,21,.78)';
   g.beginPath();
   const r = 8;

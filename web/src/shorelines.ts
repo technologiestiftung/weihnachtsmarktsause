@@ -57,7 +57,6 @@ export class Shorelines {
         return [color.r * damp, color.g * damp, color.b * damp];
       }).flat(), 3));
       g.setAttribute('surfaceType', new THREE.Float32BufferAttribute(new Float32Array(n).fill(5), 1));
-      g.setAttribute('photoMix', new THREE.Float32BufferAttribute(new Float32Array(n), 1));
       const walls = new THREE.Mesh(g, bridgeMaterial());
       walls.name = 'quays';
       walls.castShadow = walls.receiveShadow = true;

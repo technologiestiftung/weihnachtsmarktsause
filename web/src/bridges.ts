@@ -1,12 +1,12 @@
 import * as THREE from 'three';
-import { bridgeMaterial, type GroundTextures, type OrthoTile } from './materials';
+import { bridgeMaterial, type GroundTextures } from './materials';
 
 /**
  * Bridge decks from pipeline/bridges.py.
  *
  * The terrain under a bridge is whatever runs beneath it - the river, the
  * tracks - so the deck is a slab of its own: a strip along the bridge at the
- * height the laser scan measured, the orthophoto on top like on the roofs.
+ * height the laser scan measured, paved like the street it carries.
  * Decks are also somewhere to stand: World asks them for the surface under
  * the player, so you can cross the Spree on foot and drive under a viaduct.
  */
@@ -267,69 +267,18 @@ export class Decks {
   }
 
   /**
-   * Where the decks are, as a one-channel mask at 2 m over the w x h metres
-   * from (minX, minZ): the orthophoto shows a deck's top, so the ground under
-   * it must not wear the photo. Drawn on a canvas, kept as single bytes.
-   */
-  footprint(minX: number, minZ: number, w: number, h: number):
-      { map: THREE.Texture; min: THREE.Vector2; size: THREE.Vector2 } {
-    const RES = 2;
-    const pw = Math.ceil(w / RES), ph = Math.ceil(h / RES);
-    const c = document.createElement('canvas');
-    c.width = pw;
-    c.height = ph;
-    const g = c.getContext('2d', { willReadFrequently: true })!;
-    g.scale(1 / RES, 1 / RES);
-    g.fillStyle = '#fff';
-    // drawn a metre inside the edges: the mask is coarse and filtered, and
-    // where it reached past a deck the ground beside it lost its photo
-    const INSET = 1;
-    for (const s of this.surfaces) {
-      g.beginPath();
-      for (const ring of s.rings) {
-        ring.forEach((j, i) => { const [x, , z] = s.vertices[j]; if (i) g.lineTo(x - minX, z - minZ); else g.moveTo(x - minX, z - minZ); });
-        g.closePath();
-      }
-      g.fill('evenodd');
-      g.save();
-      g.globalCompositeOperation = 'destination-out';
-      g.lineWidth = INSET * 2;
-      g.stroke();
-      g.restore();
-    }
-    const rgba = g.getImageData(0, 0, pw, ph).data;
-    const red = new Uint8Array(pw * ph);
-    for (let k = 0; k < red.length; k++) red[k] = rgba[k * 4 + 3];   // coverage, from alpha
-    const tex = new THREE.DataTexture(red, pw, ph, THREE.RedFormat, THREE.UnsignedByteType);
-    // row 0 is the north edge, minimum z - like the cover mask
-    tex.flipY = false;
-    tex.magFilter = THREE.LinearFilter;
-    tex.minFilter = THREE.LinearMipmapLinearFilter;
-    tex.generateMipmaps = true;
-    tex.colorSpace = THREE.NoColorSpace;
-    // single bytes per pixel: rows are not padded to 4
-    tex.unpackAlignment = 1;
-    tex.needsUpdate = true;
-    return { map: tex, min: new THREE.Vector2(minX, minZ), size: new THREE.Vector2(pw * RES, ph * RES) };
-  }
-
-  /**
    * One mesh for all decks of a tile, positioned relative to (ox, oz): top,
-   * underside, both sides and the two ends of each slab. The top takes its
-   * colour from the orthophoto where there is one.
+   * underside, both sides and the two ends of each slab.
    */
-  mesh(ox: number, oz: number, photo?: OrthoTile, ground?: GroundTextures): THREE.Mesh {
+  mesh(ox: number, oz: number, ground?: GroundTextures): THREE.Mesh {
     const pos: number[] = [];
     const idx: number[] = [];
-    const colors: number[] = [], types: number[] = [], photos: number[] = [];
-    let tint = new THREE.Color(0x969184), type = 0, photograph = false;
+    const colors: number[] = [], types: number[] = [];
+    let tint = new THREE.Color(0x969184), type = 0;
     const vertex = (p: number[]) => {
       pos.push(...p);
       colors.push(tint.r, tint.g, tint.b);
       types.push(type);
-      // An aerial photo shows the uppermost surface. Under an elevated line,
-      // the lower road uses its own asphalt/paving instead of painted tracks.
-      photos.push(photograph && !this.at(p[0] + ox, p[2] + oz).some((h) => h.y > p[1] + 1) ? 1 : 0);
     };
     const quad = (a: number[], b: number[], c: number[], d: number[]) => {
       const k = pos.length / 3;
@@ -355,13 +304,11 @@ export class Decks {
       const s = this.surfaces[di];
       tint = new THREE.Color(0xffffff);
       type = d.k === 'road' ? 1 : d.k === 'path' ? 2 : 3;
-      photograph = true;
       const start = pos.length / 3;
       for (const p of s.vertices) vertex(local(p));
       idx.push(...s.indices.map((i) => start + i));
       tint = new THREE.Color(d.material === 'brick' ? 0x8e6850 : d.material === 'steel' || d.k === 'rail' ? 0x64716f : 0x969184);
       type = d.material === 'steel' || d.k === 'rail' ? 4 : 0;
-      photograph = false;
       const down = (p: number[]) => [p[0], p[1] - d.t, p[2]];
       const bottom = pos.length / 3;
       for (const p of s.vertices) vertex(down(local(p)));
@@ -420,7 +367,7 @@ export class Decks {
     // piers and canopy roofs: outlines raised into prisms, top and bottom
     // triangulated, sides as quads
     const prism = (ring: [number, number][], y0: number, y1: number, roof = false) => {
-      tint = new THREE.Color(0x969184); type = 0; photograph = false;
+      tint = new THREE.Color(0x969184); type = 0;
       let r = ring.map(([x, z]) => new THREE.Vector2(x - ox, z - oz));
       // some outlines come closed, first point repeated; triangulateShape
       // drops that point from r itself, and the sides below would run past it
@@ -429,9 +376,9 @@ export class Decks {
       // wound so that the top faces up: clockwise in x/z seen from above
       if (THREE.ShapeUtils.isClockWise(r)) r = r.reverse();
       const k = pos.length / 3;
-      if (roof) { tint = new THREE.Color(0xffffff); type = 3; photograph = true; }
+      if (roof) { tint = new THREE.Color(0xffffff); type = 3; }
       for (const p of r) vertex([p.x, y1, p.y]);
-      tint = new THREE.Color(0x969184); type = 0; photograph = false;
+      tint = new THREE.Color(0x969184); type = 0;
       for (const p of r) vertex([p.x, y0, p.y]);
       const n = r.length;
       for (const [a, b, c] of THREE.ShapeUtils.triangulateShape(r, [])) {
@@ -449,13 +396,12 @@ export class Decks {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     geo.setAttribute('surfaceType', new THREE.Float32BufferAttribute(types, 1));
-    geo.setAttribute('photoMix', new THREE.Float32BufferAttribute(photos, 1));
     geo.setIndex(idx);
     // flat shading per face: a slab's edges are hard
     const flat = geo.toNonIndexed();
     flat.computeVertexNormals();
     geo.dispose();
-    const mat = bridgeMaterial(ground, photo);
+    const mat = bridgeMaterial(ground);
     const mesh = new THREE.Mesh(flat, mat);
     mesh.castShadow = mesh.receiveShadow = true;
     mesh.name = 'bridges';

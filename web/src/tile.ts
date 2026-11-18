@@ -5,27 +5,20 @@ import { Decks } from './bridges';
 import { Shorelines, type ShoreData } from './shorelines';
 import { WaterField, waterMaterial, waterMesh } from './water';
 import { breathe, upload } from './frames';
-import { closeOnUpload, freeOnUpload, shareMaterialTextures, sharedTextures, shrinkTextures } from './memory';
+import { freeOnUpload, shareMaterialTextures, sharedTextures, shrinkTextures } from './memory';
 import type { CoverJob, MapJob, Raster } from './mapworker';
 import { LOW } from './quality';
 import { NavGrid, TerrainField, parseProps, parseTrees, type Tree } from './tiles';
-import { bridgeMaterial, crownMaterial, litWindows, photoRoofs, terrainMaterial, trunkMaterial,
-         type GroundKind, type GroundTextures, type OrthoTile } from './materials';
+import { bridgeMaterial, crownMaterial, litWindows, terrainMaterial, trunkMaterial,
+         type GroundKind, type GroundTextures } from './materials';
 
-const TERRAIN_CHUNK = 100;          // metres per terrain mesh; one orthophoto each
+const TERRAIN_CHUNK = 100;          // metres per terrain mesh
 const COARSE_STEP = 4;              // metres between vertices of a distant tile
-const PHOTO_NEAR = LOW ? 180 : 320; // full-resolution orthophotos within this
-const PHOTO_FAR = LOW ? 260 : 480;  // ... and dropped again beyond this
-/** The 50 cm photo and 0.5 m cover mask are loaded at a fraction of their
- *  size: decoded, a 2,400 px mask is 30 MB. Distant tiles draw a 4 m mesh,
- *  so 2 m photos and a 4 m mask are plenty. Close by, the photo stays at
- *  50 cm - bridge decks and roofs wear it, and at 1 m they looked pixelated
- *  - and the mask, which only blends materials under the photo, at 1 m.
- *  See docs/performance.md. */
-const COARSE_PHOTO = LOW ? 0.125 : 0.25;
+/** The 0.5 m cover mask is loaded at a fraction of its size: decoded, a
+ *  2,400 px mask is 30 MB. Distant tiles draw a 4 m mesh, so a 4 m mask is
+ *  plenty; close by it is loaded at 1 m. See docs/performance.md. */
 const COARSE_COVER = 0.125;
-// a phone (quality.ts) gets them at half size: a quarter of the memory
-const FULL_PHOTO = LOW ? 0.5 : 1;
+// a phone (quality.ts) gets it at half size: a quarter of the memory
 const FULL_COVER = LOW ? 0.25 : 0.5;
 /** Facade textures on a phone, pixels on the longer side (memory.ts). */
 const FACADE_MAX = 512;
@@ -41,11 +34,6 @@ export interface TileManifest {
                  packed?: boolean };
   trees: { file: string; count: number };
   props?: { file: string; models: string; kinds: string[]; count: number };
-  ortho?: {
-    chunk: number; res: number; nx: number; nz: number; minX: number; minZ: number;
-    tile: string;
-    overview: { file: string; res: number; w: number; h: number };
-  };
   nav: { file: string };
   pois?: string;
   /** Bridge decks; absent where there are none. */
@@ -63,9 +51,9 @@ type Uniforms = { uniforms: Record<string, THREE.IUniform> };
 /**
  * One piece of the world, loaded at one of two levels:
  *
- *  - coarse: terrain every 4 m under the tile's 50 cm orthophoto. Cheap
- *    enough to keep a few kilometres of them around for the view from the air.
- *  - full: 1 m terrain with 20 cm orthophotos close by, buildings, trees,
+ *  - coarse: terrain every 4 m. Cheap enough to keep a few kilometres of
+ *    them around for the view from the air.
+ *  - full: 1 m terrain, buildings, trees,
  *    street furniture, the navigation grid and the minimap.
  *
  * Geometry is stored relative to the tile's north-west corner and placed
@@ -100,10 +88,9 @@ export class Tile {
   readonly windowMats: THREE.MeshStandardMaterial[] = [];
 
   private ground: GroundTextures | null = null;
-  private overview: OrthoTile | null = null;
-  /** What the coarse level runs on; ground and overview switch to full-size
-   *  copies for full detail and back. */
-  private small: { ground: GroundTextures; overview: OrthoTile | null } | null = null;
+  /** What the coarse level runs on; the ground switches to a full-size
+   *  cover mask for full detail and back. */
+  private small: GroundTextures | null = null;
   private fullTextures: THREE.Texture[] = [];
   private deckMesh: THREE.Mesh | null = null;
   private shoreMesh: THREE.Group | null = null;
@@ -113,8 +100,6 @@ export class Tile {
   private coarse: THREE.Mesh | null = null;
   private fine = new THREE.Group();
   private open = new THREE.Group();
-  private chunks: { mesh: THREE.Mesh; i: number; j: number; photo: OrthoTile | null;
-                    loading: boolean }[] = [];
   private textures = new Set<THREE.Texture>();
   private disposed = false;
 
@@ -154,10 +139,6 @@ export class Tile {
     return res.blob();
   }
 
-  private async texture(file: string, aniso: number, width?: number, data = false): Promise<THREE.Texture> {
-    return this.bitmapTexture(await this.blob(file), aniso, width, data);
-  }
-
   /**
    * The cover mask as a texture: decoded byte for byte and scaled in the
    * worker (mapworker.ts), never through the browser's image handling, which
@@ -184,30 +165,7 @@ export class Tile {
     return tex;
   }
 
-  /**
-   * An image as a texture, decoded off the main thread (createImageBitmap),
-   * optionally straight to a smaller width, and freed from CPU memory once
-   * it is on the GPU. `data` for masks: no colour management, no
-   * premultiplied alpha - the cover mask's alpha is the water class.
-   */
-  private async bitmapTexture(blob: Blob, aniso: number, width?: number, data = false): Promise<THREE.Texture> {
-    const bmp = await createImageBitmap(blob, {
-      premultiplyAlpha: 'none', colorSpaceConversion: data ? 'none' : 'default',
-      ...(width ? { resizeWidth: Math.max(1, Math.round(width)), resizeQuality: 'high' as const } : {}),
-    });
-    const tex = new THREE.Texture(bmp);
-    // image row 0 is the north edge, i.e. the minimum z
-    tex.flipY = false;
-    tex.colorSpace = data ? THREE.NoColorSpace : THREE.SRGBColorSpace;
-    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-    tex.anisotropy = aniso;
-    tex.needsUpdate = true;
-    closeOnUpload(tex);
-    this.textures.add(tex);
-    return tex;
-  }
-
-  /** What every level needs: manifest, terrain, cover mask, overview photo. */
+  /** What every level needs: manifest, terrain, cover mask. */
   async loadCoarse(shared: SharedGround, aniso: number): Promise<void> {
     if (!this.manifest) {
       const res = await fetch(this.url('tile.json'));
@@ -215,11 +173,9 @@ export class Tile {
       this.manifest = await res.json() as TileManifest;
     }
     const m = this.manifest;
-    const [tbuf, cover, overview, bridges, water, shore] = await Promise.all([
+    const [tbuf, cover, bridges, water, shore] = await Promise.all([
       fetch(this.url(m.terrain.file)).then((r) => r.arrayBuffer()),
       this.blob(m.cover.file).then((png) => this.coverTexture(png, COARSE_COVER, aniso)),
-      m.ortho ? this.texture(m.ortho.overview.file, aniso, m.ortho.overview.w * COARSE_PHOTO)
-              : Promise.resolve(null),
       m.bridges ? fetch(this.url(m.bridges.file)).then((r) => r.json()) : Promise.resolve(null),
       m.water ? fetch(this.url(m.water.file)).then((r) => r.json()) : Promise.resolve(null),
       m.shorelines ? fetch(this.url(m.shorelines.file)).then((r) => r.json() as Promise<ShoreData>) : Promise.resolve(null),
@@ -228,21 +184,13 @@ export class Tile {
     this.terrain = new TerrainField(tbuf);
     if (bridges) this.decks = new Decks(bridges);
     if (shore) this.shorelines = new Shorelines(shore);
-    const t = this.terrain;
-    const under = this.decks && this.decks.footprint(t.minX, t.minZ, t.nx, t.nz);
-    if (under) this.textures.add(under.map);
     this.ground = {
       ...shared, cover,
       coverMin: new THREE.Vector2(m.cover.minX, m.cover.minZ),
       coverSize: new THREE.Vector2(m.cover.w * m.cover.res, m.cover.h * m.cover.res),
-      ...(under ? { under } : {}),
     };
-    if (overview && m.ortho) {
-      this.overview = { map: overview, min: new THREE.Vector2(m.ortho.minX, m.ortho.minZ),
-                        size: m.ortho.overview.w * m.ortho.overview.res };
-    }
-    this.small = { ground: this.ground, overview: this.overview };
-    for (const tex of [cover, overview]) if (tex) await upload(tex);
+    this.small = this.ground;
+    await upload(cover);
     if (this.disposed) return;
     this.buildCoarse();
     this.setDecks();
@@ -259,15 +207,15 @@ export class Tile {
     this.level = 'coarse';
   }
 
-  /** The deck slabs, wearing whichever overview photo the tile has now. */
+  /** The deck slabs, in whichever ground textures the tile has now. */
   private setDecks(): void {
     if (!this.decks) return;
     if (this.deckMesh) {
       (this.deckMesh.material as THREE.Material).dispose();
-      this.deckMesh.material = bridgeMaterial(this.ground ?? undefined, this.overview ?? undefined);
+      this.deckMesh.material = bridgeMaterial(this.ground ?? undefined);
       return;
     }
-    this.deckMesh = this.decks.mesh(this.bounds[0], this.bounds[1], this.overview ?? undefined, this.ground ?? undefined);
+    this.deckMesh = this.decks.mesh(this.bounds[0], this.bounds[1], this.ground ?? undefined);
     freeOnUpload(this.deckMesh.geometry);
     this.group.add(this.deckMesh);
   }
@@ -279,11 +227,11 @@ export class Tile {
         const mesh = o as THREE.Mesh;
         if (!mesh.isMesh || mesh.name !== 'bank tops') return;
         for (const mat of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) mat.dispose();
-        mesh.material = terrainMaterial(this.ground!, this.overview ?? undefined);
+        mesh.material = terrainMaterial(this.ground!);
       });
       return;
     }
-    this.shoreMesh = this.shorelines.meshes(this.bounds[0], this.bounds[1], terrainMaterial(this.ground, this.overview ?? undefined));
+    this.shoreMesh = this.shorelines.meshes(this.bounds[0], this.bounds[1], terrainMaterial(this.ground));
     this.group.add(this.shoreMesh);
   }
 
@@ -300,7 +248,7 @@ export class Tile {
     const m = this.manifest!;
     const live = () => !this.disposed && this.level === 'coarse';
     this.fine.visible = this.open.visible = false;
-    const [nbuf, tbuf, gltf, props, coverBlob, overview] = await Promise.all([
+    const [nbuf, tbuf, gltf, props, coverBlob] = await Promise.all([
       fetch(this.url(m.nav.file)).then((r) => r.arrayBuffer()),
       fetch(this.url(m.trees.file)).then((r) => r.arrayBuffer()),
       m.buildings ? new GLTFLoader().loadAsync(this.url(m.buildings.file)) : Promise.resolve(null),
@@ -309,18 +257,14 @@ export class Tile {
         fetch(this.url(m.props.file)).then((r) => r.arrayBuffer()),
       ]) : Promise.resolve(null),
       this.blob(m.cover.file),
-      m.ortho ? this.texture(m.ortho.overview.file, aniso, m.ortho.overview.w * FULL_PHOTO)
-              : Promise.resolve(null),
     ]);
-    if (overview) this.fullTextures.push(overview);
     if (!live()) return this.unloadFull();
     // full-size ground textures in place of the coarse level's small ones
     const cover = await this.coverTexture(coverBlob, FULL_COVER, aniso);
     this.fullTextures.push(cover);
     for (const tex of this.fullTextures) await upload(tex);
     if (!live()) return this.unloadFull();
-    this.ground = { ...this.small!.ground, cover };
-    if (overview && this.small!.overview) this.overview = { ...this.small!.overview, map: overview };
+    this.ground = { ...this.small!, cover };
 
     this.nav = new NavGrid(nbuf);
     this.trees = parseTrees(tbuf);
@@ -357,8 +301,6 @@ export class Tile {
   /** Whatever full detail has built so far, gone again; the coarse level's
    *  small textures back in place. */
   private unloadFull(): void {
-    for (const c of this.chunks) this.releasePhoto(c);
-    this.chunks = [];
     for (const g of [this.fine, this.open]) {
       disposeTree(g, this.textures);
       g.clear();
@@ -371,10 +313,7 @@ export class Tile {
       this.textures.delete(tex);
     }
     this.fullTextures = [];
-    if (this.small) {
-      this.ground = this.small.ground;
-      this.overview = this.small.overview;
-    }
+    if (this.small) this.ground = this.small;
     // only the coarse level's animated materials are left
     const coarse = this.coarse?.material as THREE.MeshStandardMaterial | undefined;
     this.animated.splice(0, this.animated.length,
@@ -408,15 +347,15 @@ export class Tile {
     const nz = Math.floor((t.nz - 1) / COARSE_STEP) + 1;
     const geo = this.terrainGeometry(0, 0, nx, nz, COARSE_STEP, gridIndex(nx, nz));
     freeOnUpload(geo);
-    const mesh = new THREE.Mesh(geo, this.terrainMat(this.overview));
+    const mesh = new THREE.Mesh(geo, this.terrainMat());
     mesh.receiveShadow = true;
     mesh.name = 'terrain';
     this.coarse = mesh;
     this.group.add(mesh);
   }
 
-  /** 1 m meshes, one per orthophoto chunk, under the overview until close.
-   *  All chunks share one index: they are the same grid. */
+  /** 1 m meshes, one per TERRAIN_CHUNK square. All chunks share one index:
+   *  they are the same grid. */
   private async buildFine(): Promise<void> {
     const t = this.terrain!;
     const n = TERRAIN_CHUNK + 1;
@@ -426,20 +365,18 @@ export class Tile {
         const geo = this.terrainGeometry(cx, cz, n, n, 1, index);
         // the shared index stays: every chunk's upload needs it
         freeOnUpload(geo, geo.index === index);
-        const mesh = new THREE.Mesh(geo, this.terrainMat(this.overview));
+        const mesh = new THREE.Mesh(geo, this.terrainMat());
         mesh.receiveShadow = true;
         mesh.name = 'terrain';
         this.fine.add(mesh);
-        this.chunks.push({ mesh, i: cx / TERRAIN_CHUNK, j: cz / TERRAIN_CHUNK,
-                           photo: null, loading: false });
         await breathe();
         if (this.disposed) return;
       }
     }
   }
 
-  private terrainMat(photo: OrthoTile | null): THREE.MeshStandardMaterial {
-    const mat = terrainMaterial(this.ground!, photo ?? undefined);
+  private terrainMat(): THREE.MeshStandardMaterial {
+    const mat = terrainMaterial(this.ground!);
     this.animated.push(mat.userData as Uniforms);
     return mat;
   }
@@ -487,82 +424,6 @@ export class Tile {
     return geo;
   }
 
-  /** Swap 20 cm orthophotos in near (x, z) and back out further away. */
-  /** Orthophoto chunks close enough to (x, z) for their full photo: how
-   *  many there are, and how many have it already. */
-  photoCount(x: number, z: number): [number, number] {
-    const o = this.manifest?.ortho;
-    if (!o || this.level !== 'full') return [0, 0];
-    let want = 0, have = 0;
-    for (const c of this.chunks) {
-      if (c.i >= o.nx || c.j >= o.nz || this.photoDistance(c, x, z) >= PHOTO_NEAR) continue;
-      want++;
-      if (c.photo) have++;
-    }
-    return [want, have];
-  }
-
-  private photoDistance(c: Tile['chunks'][number], x: number, z: number): number {
-    const o = this.manifest!.ortho!;
-    const cx = o.minX + (c.i + 0.5) * o.chunk;
-    const cz = o.minZ + (c.j + 0.5) * o.chunk;
-    return Math.hypot(cx - x, cz - z) - o.chunk * 0.7;
-  }
-
-  updatePhotos(x: number, z: number, aniso: number): void {
-    const o = this.manifest?.ortho;
-    if (!o || this.level !== 'full') return;
-    for (const c of this.chunks) {
-      const d = this.photoDistance(c, x, z);
-      if (d < PHOTO_NEAR && !c.photo && !c.loading && c.i < o.nx && c.j < o.nz) {
-        c.loading = true;
-        const file = o.tile.replace('{i}', String(c.i)).replace('{j}', String(c.j));
-        void this.texture(file, aniso).then((map) => {
-          c.loading = false;
-          if (this.disposed || !this.chunks.includes(c)) { map.dispose(); return; }
-          c.photo = { map, size: o.chunk,
-                      min: new THREE.Vector2(o.minX + c.i * o.chunk, o.minZ + c.j * o.chunk) };
-          this.setChunkMaterial(c, this.terrainMat(c.photo));
-        }, () => { c.loading = false; });
-      } else if (d > PHOTO_FAR && c.photo) {
-        this.releasePhoto(c);
-        this.setChunkMaterial(c, this.terrainMat(this.overview));
-      }
-    }
-    // Reuse the already-streamed 20 cm Berlin orthophoto under the player on
-    // bridge tops, too. No extra image downloads or GPU texture allocation.
-    const uniforms = (this.deckMesh?.material as THREE.Material | undefined)?.userData.uniforms;
-    if (uniforms?.uBridgeDetailOn) {
-      const detail = this.chunks.find((c) => c.photo && x >= c.photo.min.x && z >= c.photo.min.y
-        && x < c.photo.min.x + c.photo.size && z < c.photo.min.y + c.photo.size)?.photo;
-      uniforms.uBridgeDetailOn.value = detail ? 1 : 0;
-      if (detail) {
-        uniforms.uBridgeDetail.value = detail.map;
-        uniforms.uBridgeDetailMin.value.copy(detail.min);
-        uniforms.uBridgeDetailSize.value = detail.size;
-      } else {
-        // Even an unsampled uniform is bound by WebGL. Never leave it pointing
-        // at a released photo whose ImageBitmap was closed after upload.
-        uniforms.uBridgeDetail.value = this.overview?.map ?? null;
-      }
-    }
-  }
-
-  private setChunkMaterial(c: Tile['chunks'][number], mat: THREE.MeshStandardMaterial): void {
-    const old = c.mesh.material as THREE.MeshStandardMaterial;
-    const k = this.animated.indexOf(old.userData as Uniforms);
-    if (k >= 0) this.animated.splice(k, 1);
-    old.dispose();
-    c.mesh.material = mat;
-  }
-
-  private releasePhoto(c: Tile['chunks'][number]): void {
-    if (!c.photo) return;
-    c.photo.map.dispose();
-    this.textures.delete(c.photo.map);
-    c.photo = null;
-  }
-
   /* --- things standing on it --------------------------------------------- */
 
   /**
@@ -596,17 +457,6 @@ export class Tile {
     const facades = new Set([...groups.values()].map((g) => g.mat));
     if (LOW) await shrinkTextures(facades, FACADE_MAX);
     this.sharedKeys.push(...shareMaterialTextures(facades));
-
-    // every building material takes its upward faces from the orthophoto
-    if (this.overview) {
-      const seen = new Set<THREE.Material>();
-      const size = new THREE.Vector2(this.overview.size, this.overview.size);
-      for (const { mat } of groups.values()) {
-        if (seen.has(mat)) continue;
-        seen.add(mat);
-        photoRoofs(mat, this.overview.map, this.overview.min, size);
-      }
-    }
 
     for (const { mat, geos } of groups.values()) {
       const merged = mergeGeometries(geos, false);
@@ -650,11 +500,6 @@ export class Tile {
       const mat = mesh.material as THREE.MeshStandardMaterial;
       if (!done.has(mat)) {
         done.add(mat);
-        // upward faces take the orthophoto, as in buildBuildings
-        if (this.overview) {
-          photoRoofs(mat, this.overview.map, this.overview.min,
-                     new THREE.Vector2(this.overview.size, this.overview.size));
-        }
         for (const tex of [mat.map, mat.normalMap, mat.roughnessMap, mat.aoMap]) {
           if (tex) tex.anisotropy = aniso;
         }

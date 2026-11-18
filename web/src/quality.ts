@@ -6,8 +6,8 @@
  * through the city (scripts/games-bench.ts). A phone's browser gets
  * nowhere near that: iOS reloads the tab, and with it the game, long before.
  * So a phone - a coarse pointer - runs on a smaller budget: full detail
- * close by only, a shorter distant ring hidden in nearer fog, ground
- * photos at half size and fewer pixels. `?quality=low` or `?quality=high`
+ * close by only, a shorter distant ring hidden in nearer fog, the cover
+ * mask at half size and fewer pixels. `?quality=low` or `?quality=high`
  * picks one by hand. See docs/performance.md.
  */
 

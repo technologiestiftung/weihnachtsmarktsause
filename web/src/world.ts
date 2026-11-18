@@ -57,7 +57,7 @@ export interface Env {
  * street furniture, in tiles streamed around the player.
  *
  * All of Berlin is ~1,000 tiles of 1 km: full detail near the player, coarse
- * photo-draped terrain further out, nothing beyond. Queries - ground height,
+ * coarse terrain further out, nothing beyond. Queries - ground height,
  * where you may stand - are answered by whichever tile is underfoot;
  * where nothing is loaded yet, nothing is passable, so you wait at the edge
  * of a tile rather than fall through it.
@@ -163,8 +163,8 @@ export class World {
   }
 
   /**
-   * Called every frame: start the most urgent missing tile, drop far ones,
-   * and swap close orthophotos in. One tile loads at a time - building one
+   * Called every frame: start the most urgent missing tile and drop far
+   * ones. One tile loads at a time - building one
    * merges thousands of meshes on this thread - so the frame rate dips only
    * briefly each time.
    */
@@ -188,7 +188,6 @@ export class World {
           || (level === want.level && d < want.d))) {
         want = { tile, level, d };
       }
-      if (tile.level === 'full') tile.updatePhotos(x, z, this.aniso);
     }
     if (want && !this.busy) {
       this.busy = true;
@@ -203,9 +202,7 @@ export class World {
 
   /**
    * How much of what should show around (x, z) is in: each tile in range at
-   * the detail its distance asks for, and each close orthophoto. Done when
-   * done reaches total; the total grows as tiles come in full and bring
-   * their photo chunks.
+   * the detail its distance asks for. Done when done reaches total.
    */
   progress(x: number, z: number): { done: number; total: number } {
     let done = 0, total = 0;
@@ -215,9 +212,6 @@ export class World {
       if (!level) continue;
       total++;
       if (tile.level === 'full' || (level === 'coarse' && tile.level === 'coarse')) done++;
-      const [want, have] = tile.photoCount(x, z);
-      total += want;
-      done += have;
     }
     return { done, total };
   }
