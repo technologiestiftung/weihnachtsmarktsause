@@ -114,10 +114,10 @@ Illustrations by {MARIA_MUSTERFRAU}, all rights reserved.
 <table>
   <tr>
     <td>
-      <a href="https://odis-berlin.de">
+      Made by <a href="https://odis-berlin.de">
         <br />
         <br />
-        <img width="200" src="https://logos.citylab-berlin.org/logo-odis-berlin.svg" />
+        <img width="200" src="https://logos.citylab-berlin.org/logo-odis-berlin-coloured.svg" alt="Link to the ODIS website" />
       </a>
     </td>
     <td>
@@ -136,5 +136,3 @@ Illustrations by {MARIA_MUSTERFRAU}, all rights reserved.
     </td>
   </tr>
 </table>
-
-## Related Projects
