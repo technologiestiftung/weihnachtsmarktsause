@@ -94,6 +94,9 @@
   #menuContact { margin-top: 6px; }
   #boot h2 a, #menuCredits a, #menuContact a { color: inherit; pointer-events: auto; }
   #result { display: none; margin: 0 auto 18px; max-width: 520px; }
+  /* what the game is about; a result takes its place */
+  #intro { max-width: 46ch; margin: 0 auto 20px; font-size: 13.5px; line-height: 1.55; color: #3d4452; }
+  #result.on + #intro { display: none; }
   #result.on { display: block; }
   #result h3 { font-size: 22px; margin: 0 0 6px; letter-spacing: .06em; font-weight: 600; }
   #result .big { font-size: 46px; color: var(--accent-ink); font-weight: 600; line-height: 1.1; }
@@ -377,6 +380,7 @@
   </div>
   <div id="menu">
     <div id="result"></div>
+    <p id="intro"></p>
     <div id="mainBtns">
       <button id="playBtn" data-i18n="menu.play">Start</button>
       <button id="scoresBtn" data-i18n="scores.title">Bestenliste</button>

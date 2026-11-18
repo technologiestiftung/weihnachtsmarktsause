@@ -88,8 +88,8 @@ const de = {
   'pause.restart': 'Neu starten',
   'pause.exit': 'Spiel beenden',
   'pause.note': '<kbd>Esc</kbd> spielt weiter',
-  'dur.s': '{n} Sekunden',
-  'dur.m': '{n} {n|Minute|Minuten}',
+  'dur.s': '{n}\u00a0Sekunden',
+  'dur.m': '{n}\u00a0{n|Minute|Minuten}',
   'game.none': 'in der Nähe ist nichts mehr',
   'game.noTargets': 'hier im gebauten Gebiet gibt es keine Ziele',
   'game.time': '+{n} s',
@@ -99,6 +99,9 @@ const de = {
   'game.chase': '🏆 Zu schlagen: {n}',
   'mode.markets.title': 'Weihnachtsmarkt-Sause',
   'mode.markets.blurb': 'Flieg mit Santas Schlitten über die Stadt und wirf über möglichst vielen Weihnachtsmärkten Geschenke ab – in {dur}.',
+  'mode.markets.intro': 'Entdecke Berlins Weihnachtsmärkte aus luftiger Perspektive. Mit unserem neuen 3D-Spiel kannst du '
+    + 'über die Berliner Weihnachtsmärkte fliegen und so viele Märkte wie möglich beschenken. '
+    + 'Wer schafft es, in {dur} die meisten Märkte zu beschenken?',
   'mode.markets.controls': 'S bremsen · A D lenken · Maus oder R F steigen',
   'mode.markets.source': 'Weihnachtsmärkte 2025: SenWEB (CC BY)',
   'mode.markets.score': 'von {of} Weihnachtsmärkten beschenkt',
@@ -186,8 +189,8 @@ const en: Record<Key, string> = {
   'pause.restart': 'Restart',
   'pause.exit': 'Quit game',
   'pause.note': '<kbd>Esc</kbd> resumes',
-  'dur.s': '{n} seconds',
-  'dur.m': '{n} {n|minute|minutes}',
+  'dur.s': '{n}\u00a0seconds',
+  'dur.m': '{n}\u00a0{n|minute|minutes}',
   'game.none': 'nothing left nearby',
   'game.noTargets': 'no targets in the built area here',
   'game.time': '+{n} s',
@@ -197,6 +200,9 @@ const en: Record<Key, string> = {
   'game.chase': '🏆 To beat: {n}',
   'mode.markets.title': 'Christmas Market Dash',
   'mode.markets.blurb': "Fly Santa's sleigh over the city and drop presents on as many Christmas markets as you can in {dur}.",
+  'mode.markets.intro': "Discover Berlin's Christmas markets from above. In our new 3D game you fly over Berlin's "
+    + 'Christmas markets and bring presents to as many of them as you can. '
+    + 'Who can reach the most markets in {dur}?',
   'mode.markets.controls': 'S brake · A D steer · mouse or R F climb',
   'mode.markets.source': 'Weihnachtsmärkte 2025: SenWEB (CC BY)',
   'mode.markets.score': 'of {of} Christmas markets visited',

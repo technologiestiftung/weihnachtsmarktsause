@@ -28,6 +28,7 @@ export class Menu {
   private readonly result = document.getElementById('result')!;
   private readonly credits = document.getElementById('menuCredits')!;
   private readonly finder = document.getElementById('finderBtn') as HTMLAnchorElement;
+  private readonly intro = document.getElementById('intro')!;
   private readonly scoreboard = new Scoreboard();
   /** The game last played, whose tab the high scores open on. */
   private lastMode: string | undefined;
@@ -158,8 +159,10 @@ export class Menu {
     this.redraw = () => this.showNote(text);
   }
 
-  /** The data credits, the markets first, and the finder in this language. */
+  /** The intro, the data credits (the markets first) and the finder, in this language. */
   private render(): void {
+    // the round's length comes from games.ts, so the text says it as it is
+    this.intro.textContent = modeText(MODE_INFO[0].id, 'intro');
     this.credits.innerHTML = t('menu.sources', { markets: modeText(MODE_INFO[0].id, 'source'), rest: t('credits') });
     this.finder.href = `https://weihnachtsmaerkte.odis-berlin.de/?lang=${lang}`;
   }
