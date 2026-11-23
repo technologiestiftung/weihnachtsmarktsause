@@ -3,7 +3,7 @@ import { num } from './i18n';
 
 /**
  * Text plates drawn on a canvas: the names over stations and sights
- * (sights.ts) and the distances under the game's markers.
+ * (sights.ts) and over the game's markers, and how far those are.
  *
  * The build also has street names and places per tile (pois.json); from the
  * sleigh at night they could not be read, so they are not loaded.
@@ -65,10 +65,10 @@ export function labelTexture(text: string, colour: string, scale = 1, sub = ''):
 /**
  * How far away something is, as a small plate: "40 m", "350 m", "1,2 km".
  * Rounded coarser the further it is, so the handful of plates in use are
- * drawn once and then shared by every game beacon.
+ * drawn once and then shared.
  */
 const distCache = new Map<string, Label>();
-export function distanceText(m: number): string {
+function distanceText(m: number): string {
   if (m < 1000) {
     const step = m < 100 ? 5 : 10;
     return `${Math.max(step, Math.round(m / step) * step)} m`;

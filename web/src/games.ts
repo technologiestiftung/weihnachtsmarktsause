@@ -3,7 +3,7 @@ import type { HUD } from './hud';
 import type { Overview } from './overview';
 import type { Player } from './player';
 import { t } from './i18n';
-import { distanceText, labelTexture, setDistance, type Label } from './labels';
+import { labelTexture, setDistance, type Label } from './labels';
 import { sfx } from './sfx';
 import type { World } from './world';
 
@@ -52,8 +52,6 @@ export interface Result {
   title: string;
   /** Targets reached. */
   count: number;
-  /** Targets there were. */
-  of: number;
 }
 
 export interface GameHost {
@@ -147,10 +145,11 @@ function icon(emoji: string, colour: string): THREE.Texture {
   return t;
 }
 
+const SCRATCH = new THREE.Vector3();
 const COLUMN = new THREE.CylinderGeometry(1, 1, 1, 12, 1, true).translate(0, 0.5, 0);
 
 /** A pin over the target and a column of light up into the sky, with the
- *  market's name above and how far it is underneath. Pins keep their size on
+ *  market's name above and how far it is above that. Pins keep their size on
  *  screen and show through buildings: they are the objective. */
 class Beacon {
   readonly group = new THREE.Group();
@@ -177,14 +176,13 @@ class Beacon {
       depthTest: false, depthWrite: false, transparent: true, sizeAttenuation: false, fog: false,
     }));
     this.dist.renderOrder = 30;
-    this.dist.center.set(0.5, 1);
     this.label = labelTexture(name, colour, 0.8);
     this.name = new THREE.Sprite(new THREE.SpriteMaterial({
       map: this.label.tex, depthTest: false, depthWrite: false, transparent: true, sizeAttenuation: false,
       fog: false,
     }));
     this.name.renderOrder = 30;
-    this.group.add(this.column, this.pin, this.dist, this.name);
+    this.group.add(this.column, this.pin, this.name, this.dist);
     this.pinHeight = Math.min(height, 6);
   }
 
@@ -192,14 +190,15 @@ class Beacon {
     const s = (near ? 0.075 : 0.05) * (dist < 30 ? 0.8 : 1);
     this.pin.scale.set(s, s, 1);
     this.pin.position.y = this.pinHeight + Math.sin(t * 2.4) * 0.4;
-    // the plate hangs under the pin, at about the pin's own scale
-    setDistance(this.dist, dist, s * 0.011);
-    this.dist.position.y = this.pin.position.y;
     // the name sits on top of the pin
     const k = s * 0.012;
     this.name.scale.set(this.label.w * k, this.label.h * k, 1);
     this.name.center.set(0.5, -s / (this.label.h * k));
     this.name.position.y = this.pin.position.y;
+    // the distance stacks on top of the name
+    setDistance(this.dist, dist, k);
+    this.dist.center.set(0.5, -(s + this.label.h * k) / this.dist.scale.y);
+    this.dist.position.y = this.pin.position.y;
     // the column fades as you arrive, so it doesn't fill the screen
     (this.column.material as THREE.MeshBasicMaterial).opacity = Math.min(0.32, dist / 160);
   }
@@ -317,8 +316,8 @@ export class Game {
   private readonly pace = 0.8;
   private readonly snow = new Snow();
   /** Beacons over the nearest markets: how many, how far out, how tall and wide. */
-  private readonly beaconCount = 14;
-  private readonly beaconRange = 9000;
+  private readonly beaconCount = 10;
+  private readonly beaconRange = 5000;
   private readonly beaconHeight = 320;
   private readonly beaconWidth = 5;
 
@@ -369,7 +368,7 @@ export class Game {
     this.fov0 = this.host.camera.fov;
     el('game').classList.add('on');
     this.banner(this.best ? t('game.chase', { n: this.text('unit', { n: this.best }) }) : this.text('controls'), 4);
-    this.render(this.next());
+    this.render();
     this.host.player.setSleigh(true);
     this.host.setNight(1);
     this.host.scene.add(this.snow.points);
@@ -539,8 +538,18 @@ export class Game {
     }
     const nxt = this.next();
     const now = performance.now() / 1000;
-    for (const [s, b] of this.beacons) {
+    const near = [...this.beacons]
+      .map(([s, b]) => [s === nxt ? -1 : Math.hypot(s.x - p.pos.x, s.z - p.pos.z), s, b] as const)
+      .sort((a, b) => a[0] - b[0]);
+    // nearest first (the next target before all): a pin that would land on
+    // a nearer one on screen is left out, so names don't pile up
+    const taken: [number, number][] = [];
+    for (const [, s, b] of near) {
       b.update(now, s === nxt, Math.hypot(s.x - p.pos.x, s.z - p.pos.z));
+      const at = SCRATCH.copy(b.group.position).project(this.host.camera);
+      const sx = at.x * innerWidth / 2, sy = at.y * innerHeight / 2;
+      b.group.visible = at.z > 1 || !taken.some(([x, y]) => Math.abs(x - sx) < 150 && Math.abs(y - sy) < 50);
+      if (b.group.visible && at.z <= 1) taken.push([sx, sy]);
     }
     this.updateParticles(dt);
     this.updateView(dt);
@@ -548,7 +557,7 @@ export class Game {
       this.bannerTimer -= dt;
       if (this.bannerTimer <= 0) el('banner').classList.remove('on');
     }
-    this.render(nxt);
+    this.render();
   }
 
   /** The camera kick on a hit and the widening rush of speed. */
@@ -592,8 +601,7 @@ export class Game {
   private end(): void {
     if (this.state === 'over') return;
     this.state = 'over';
-    this.result = { won: this.count > 0, title: this.text(this.count >= 8 ? 'won' : 'lost'),
-                    count: this.count, of: this.spots.length };
+    this.result = { won: this.count > 0, title: this.text(this.count >= 8 ? 'won' : 'lost'), count: this.count };
     if (this.result.won) sfx.win(); else sfx.lose();
   }
 
@@ -661,17 +669,14 @@ export class Game {
     return this.beaten ? t('game.beaten') : t('game.best', { n: this.text('unit', { n: this.best }) });
   }
 
-  private render(nxt: Spot | null): void {
-    const p = this.host.player;
+  private render(): void {
     const left = this.limit - this.time;
     const clock = el('gTime');
     put(clock, fmt(left));
     clock.classList.toggle('low', left < 30 && this.state === 'play');
     put(el('gPoints'), String(this.count));
-    put(el('gScore'), this.text('score', { n: this.count, of: this.spots.length }));
+    put(el('gScore'), this.text('score'));
     put(el('gGoal'), this.goalLine());
-    put(el('gTarget'), nxt ? `${nxt.n} · ${distanceText(Math.hypot(nxt.x - p.pos.x, nxt.z - p.pos.z))}`
-      : t(this.spots.length ? 'game.none' : 'game.noTargets'));
   }
 }
 
