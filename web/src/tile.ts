@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Decks } from './bridges';
 import { Shorelines, type ShoreData } from './shorelines';
@@ -11,6 +12,9 @@ import { LOW } from './quality';
 import { TerrainField, parseTrees, type Tree } from './tiles';
 import { bridgeMaterial, crownMaterial, litWindows, terrainMaterial, trunkMaterial,
          type GroundKind, type GroundTextures } from './materials';
+
+/** Reads plain and meshopt-compressed glTF (EXT_meshopt_compression). */
+const gltfLoader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 
 const TERRAIN_CHUNK = 100;          // metres per terrain mesh
 /** Metres between vertices close by: from the sleigh, 2 m looks like 1 m
@@ -296,7 +300,7 @@ export class Tile {
     this.fine.visible = this.open.visible = false;
     const [tbuf, gltf, png] = await Promise.all([
       this.bytes(m.trees.file),
-      m.buildings ? this.bytes(m.buildings.file).then((b) => new GLTFLoader().parseAsync(b, this.base))
+      m.buildings ? this.bytes(m.buildings.file).then((b) => gltfLoader.parseAsync(b, this.base))
                   : Promise.resolve(null),
       this.bytes(m.cover.file),
     ]);
