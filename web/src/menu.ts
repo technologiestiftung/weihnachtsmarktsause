@@ -1,10 +1,11 @@
 import { MODE_INFO, modeText, type Result } from './games';
-import { lang, onLang, t } from './i18n';
+import { lang, onLang, setLang, t } from './i18n';
 import { playerName, setPlayerName, standing, type Board } from './ranking';
 import { Scoreboard } from './scoreboard';
 import { bestCount, recordRun, type Run } from './scores';
 import type { Settings } from './settings';
 import { art } from './loadingart';
+import { audioSettings, musicAudible, onAudio, setAudio } from './sfx';
 
 /**
  * The start menu, on black with a lit tree in falling snow: start, high scores and settings, with a
@@ -44,6 +45,37 @@ export class Menu {
     // high scores and settings open in a box over the menu
     document.getElementById('scoresBtn')!.addEventListener('click', () => this.scoreboard.show(this.lastMode));
     document.getElementById('settingsBtn')!.addEventListener('click', () => this.settings.show());
+    // music on and off, as the finder's audio button; it turns sound on too if that was off
+    const musicBtn = document.getElementById('musicBtn')!;
+    const showMusic = () => {
+      const on = musicAudible();
+      musicBtn.classList.toggle('on', on);
+      musicBtn.setAttribute('aria-pressed', String(on));
+      musicBtn.title = t(on ? 'menu.musicOff' : 'menu.musicOn');
+      musicBtn.setAttribute('aria-label', t('settings.music'));
+    };
+    musicBtn.addEventListener('click', () => {
+      if (musicAudible()) setAudio({ musicOn: false });
+      else setAudio({ on: true, musicOn: true, music: audioSettings.music || 0.5 });
+      // in a game, Space must climb rather than press the button again
+      musicBtn.blur();
+    });
+    onAudio(showMusic);
+    onLang(showMusic);
+    showMusic();
+    // the language, as the finder's button: it names the one shown, a click switches
+    const langBtn = document.getElementById('langBtn')!;
+    const showLang = () => {
+      langBtn.textContent = lang.toUpperCase();
+      langBtn.title = t('menu.lang');
+      langBtn.setAttribute('aria-label', `${t('menu.lang')}: ${lang.toUpperCase()}`);
+    };
+    langBtn.addEventListener('click', () => {
+      setLang(lang === 'de' ? 'en' : 'de');
+      langBtn.blur();
+    });
+    onLang(showLang);
+    showLang();
   }
 
   /** Clears the panel above the buttons. */
@@ -66,7 +98,7 @@ export class Menu {
     this.open = true;
     this.boot.style.display = '';
     if (document.pointerLockElement) document.exitPointerLock();
-    art.show('tree', this.boot, document.getElementById('bootArt'));
+    art.show('sky', this.boot);
     this.render();
   }
 
@@ -111,6 +143,7 @@ export class Menu {
       kids.push(h('p', '', t('menu.best', { best: modeText(id, 'unit', { n: best }) })));
     }
     if (run.ranked) kids.push(this.rankLine(id, r, run));
+    if (r.route?.length) kids.push(this.routeList(r.route));
     this.result.replaceChildren(...kids);
     this.result.classList.add('on');
     this.redraw = () => this.drawResult(id, r, run);
@@ -122,7 +155,7 @@ export class Menu {
       const p = h('p', 'rank', '…');
       this.standing.then(
         (b) => {
-          p.textContent = b.me ? t(b.local ? 'board.localRank' : 'board.rank', { rank: b.me.rank, n: b.players }) : '';
+          p.textContent = b.me ? t(b.local ? 'board.localRank' : 'board.rank', { rank: b.me.rank }) : '';
         },
         (e) => { p.textContent = t((e as Error).message === '409' ? 'board.taken' : 'board.offline'); p.className = 'src'; });
       return p;
@@ -158,7 +191,34 @@ export class Menu {
     return form;
   }
 
-  /** A line over the buttons: a game left before the end, or one that would not start. */
+  /** The start screen as it is before any game: no result, no note. */
+  home(): void {
+    this.closePanel();
+    this.show();
+  }
+
+  /**
+   * The markets reached, in order, each a link to it in the finder: from
+   * the game to a real visit.
+   */
+  private routeList(route: { id: number; name: string }[]): HTMLElement {
+    const box = h('div', 'route');
+    box.append(h('p', 'sub', t('menu.route')));
+    const ol = h('ol', '');
+    for (const m of route) {
+      const a = h('a', '', m.name);
+      a.href = `https://weihnachtsmaerkte.odis-berlin.de/?id=${m.id}&lang=${lang}`;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      const li = h('li', '');
+      li.append(a);
+      ol.append(li);
+    }
+    box.append(ol, h('p', 'hint', t('menu.routeHint')));
+    return box;
+  }
+
+  /** A line over the buttons: a game that would not start. */
   showNote(text: () => string): void {
     this.result.replaceChildren(h('p', '', text()));
     this.result.classList.add('on');
@@ -170,7 +230,7 @@ export class Menu {
   private render(): void {
     // the round's length comes from games.ts, so the text says it as it is
     this.intro.textContent = modeText(MODE_INFO[0].id, 'intro');
-    this.credits.innerHTML = t('menu.sources', { markets: modeText(MODE_INFO[0].id, 'source'), rest: t('credits') });
+    this.credits.innerHTML = t('menu.sources', { markets: modeText(MODE_INFO[0].id, 'source') });
     this.finder.href = `https://weihnachtsmaerkte.odis-berlin.de/?lang=${lang}`;
   }
 }

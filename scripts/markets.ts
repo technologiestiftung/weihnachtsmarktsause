@@ -6,9 +6,12 @@
  *
  *   npm run data:markets
  *
- * The CSV carries lat/lng and long descriptions; the game needs a name and
- * a place in world metres, so it gets [x, z, name, dates] per market, about
- * a twentieth of the size. Markets outside Berlin (Potsdam, Bernau, ...) are
+ * The CSV carries lat/lng and long descriptions; the game needs a name, a
+ * place in world metres and when the market is open, so it gets
+ * [x, z, name, dates, id, hours, district] per market, a fraction of the size. The id
+ * is the finder's (its ?id= links to the market there); hours are the
+ * season's first and last day, the times per weekday (Mo..So, '' closed),
+ * days closed and days with other times, dates as YYYY-MM-DD. Markets outside Berlin (Potsdam, Bernau, ...) are
  * left out: the 3D city ends at the border. ORIGIN is the tile manifest's
  * (world.json), as in web/src/geo.ts.
  *
@@ -71,13 +74,33 @@ function parseCsv(text: string): string[][] {
 const [head, ...rows] = parseCsv(readFileSync(SRC, 'utf8').replace(/^﻿/, ''));
 const col = Object.fromEntries(head.map((h, i) => [h, i]));
 
-const points: [number, number, string, string][] = [];
+/** 05.12.26 -> 2026-12-05 */
+const isoDate = (d: string) => {
+  const [dd, mm, yy] = d.trim().split('.');
+  return `20${yy}-${mm}-${dd}`;
+};
+/** '11:00 - 22:00' -> '11:00-22:00'; '0' or blank -> '' (closed) */
+const span = (v: string) => (v && v.trim() !== '0' ? v.replace(/\s*-\s*/, '-').trim() : '');
+const list = (v: string) => (v && v.trim() !== '0' ? v.split(',').map((x) => x.trim()).filter(Boolean) : []);
+
+interface Hours { f: string; t: string; w: string[]; c?: string[]; h?: Record<string, string> }
+
+const points: [number, number, string, string, number, Hours, string][] = [];
 let skipped = 0;
 for (const r of rows) {
   if (r[col.ignore] === '1' || !r[col.plz_ort].endsWith('Berlin')) { skipped++; continue; }
   const [e, n] = utm33(Number(r[col.lng]), Number(r[col.lat]));
   const round = (v: number) => Math.round(v * 10) / 10;
-  points.push([round(e - ORIGIN.e), round(ORIGIN.n - n), r[col.shortname] || r[col.name], `${r[col.von]} – ${r[col.bis]}`]);
+  const hours: Hours = {
+    f: isoDate(r[col.von]), t: isoDate(r[col.bis]),
+    w: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((d) => span(r[col[d]])),
+  };
+  const closed = list(r[col['closed-exc']]).map(isoDate);
+  if (closed.length) hours.c = closed;
+  const other = list(r[col['hours-exc']]).map((x) => x.split('=') as [string, string]);
+  if (other.length) hours.h = Object.fromEntries(other.map(([d, v]) => [isoDate(d), span(v)]));
+  points.push([round(e - ORIGIN.e), round(ORIGIN.n - n), r[col.shortname] || r[col.name],
+    `${r[col.von]} – ${r[col.bis]}`, Number(r[col.id]), hours, r[col.bezirk]]);
 }
 
 writeFileSync(OUT, JSON.stringify({ attribution: `Weihnachtsmärkte ${YEAR}, SenWEB Berlin / ODIS (CC BY)`, points }));

@@ -8,9 +8,13 @@ const PITCH_MAX = 1.15;
 /** Eye height standing, for the cameras outside the sleigh. */
 const EYE = 1.72;
 
-// the sleigh, metres per second and metres above the ground
-const SLEIGH_CRUISE = 40;
-const SLEIGH_BOOST = 110;
+// the sleigh, metres per second (and per second squared) and metres above the ground:
+// W speeds it up to the top speed, let go it eases back to cruising, S slows it to a stop
+const SLEIGH_CRUISE = 70;
+const SLEIGH_MAX = 110;
+const SLEIGH_ACCEL = 22;
+const SLEIGH_EASE = 14;
+const SLEIGH_BRAKE = 40;
 const SLEIGH_FLOOR = 6;
 const SLEIGH_CEILING = 450;
 
@@ -58,13 +62,21 @@ export class Player {
   }
 
   /**
-   * The sleigh flies like a plane: always at full boost, S holds it back,
-   * A/D (or Q/E, or the mouse) bank it round and the view's pitch is its
-   * climb. It skims over the ground rather than landing.
+   * The sleigh flies like a plane: W speeds it up the longer it is held, up
+   * to the top speed, and let go it eases back to cruising; S slows it, all
+   * the way to a stop, and there it stays until W. A/D (or Q/E, or the
+   * mouse) bank it round and the view's pitch is its climb. It skims over
+   * the ground rather than landing.
    */
   private updateSleigh(dt: number, keys: Set<string>): void {
-    const want = (keys.has('KeyS') ? SLEIGH_CRUISE : SLEIGH_BOOST) * this.speedScale;
-    this.sleighSpeed += (want - this.sleighSpeed) * Math.min(1, dt * 1.6);
+    const k = this.speedScale;
+    const cruise = SLEIGH_CRUISE * k;
+    let speed = this.sleighSpeed;
+    if (keys.has('KeyS')) speed = Math.max(0, speed - SLEIGH_BRAKE * k * dt);
+    else if (keys.has('KeyW')) speed = Math.min(SLEIGH_MAX * k, speed + SLEIGH_ACCEL * k * dt);
+    // let go: back down to cruising from above; slower than that, it keeps its pace
+    else if (speed > cruise) speed = Math.max(cruise, speed - SLEIGH_EASE * k * dt);
+    this.sleighSpeed = speed;
     const steer = (keys.has('KeyA') ? 1 : 0) - (keys.has('KeyD') ? 1 : 0) + this.turnInput(keys);
     this.yaw += Math.max(-1, Math.min(1, steer)) * 1.25 * dt;
     this.lean += (-steer * 0.45 - this.lean) * Math.min(1, dt * 4);
@@ -73,6 +85,8 @@ export class Player {
     this.pitch = Math.max(-0.7, Math.min(0.7, this.pitch));
     const cp = Math.cos(this.pitch);
     const v = this.sleighSpeed * dt;
+    // all but stopped, the pitch lifts nothing: Space and Ctrl take it straight up and down
+    if (speed < 8 * k) this.pos.y += ((keys.has('Space') ? 1 : 0) - (keys.has('ControlLeft') ? 1 : 0)) * 25 * dt;
     this.pos.x += -Math.sin(this.yaw) * cp * v;
     this.pos.z += -Math.cos(this.yaw) * cp * v;
     this.pos.y += Math.sin(this.pitch) * v;
@@ -90,7 +104,7 @@ export class Player {
   setSleigh(on: boolean): void {
     this.sleigh = on;
     if (on) {
-      this.sleighSpeed = SLEIGH_CRUISE;
+      this.sleighSpeed = SLEIGH_CRUISE * this.speedScale;
       this.pitch = 0.05;
       this.pos.y = Math.max(this.pos.y, this.world.height(this.pos.x, this.pos.z) + 60);
     } else {
