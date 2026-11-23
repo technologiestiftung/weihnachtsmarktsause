@@ -1,11 +1,11 @@
 import { MODE_INFO, modeText } from './games';
-import { lang, onLang, t } from './i18n';
+import { onLang, t } from './i18n';
 import { cleanName, fetchBoard, playerName, setPlayerName, type Board } from './ranking';
-import { runsOf, stats } from './scores';
 
 /**
  * The high scores, in a box over the start screen: the course on the shared
- * board and your own record, and above them the name you play under.
+ * board, and above it the name you play under. It tells neither how many
+ * play nor when anyone played.
  */
 
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ''): HTMLElementTagNameMap[K] {
@@ -99,7 +99,7 @@ export class Scoreboard {
     return form;
   }
 
-  /** The course on the board, then your own numbers. */
+  /** The course on the board. */
   private drawTab(): void {
     const mode = this.mode;
     const drawn = ++this.drawn;
@@ -110,25 +110,6 @@ export class Scoreboard {
     fetchBoard(mode).then(
       (b) => { if (drawn === this.drawn) list.replaceChildren(...this.boardRows(mode, b)); },
       () => { if (drawn === this.drawn) list.replaceChildren(h('p', 'dim', t('board.offline'))); });
-
-    const name = playerName();
-    const s = stats(mode, name);
-    this.body.append(h('p', 'sub', t('board.mine')));
-    if (!s.played) {
-      this.body.append(h('p', 'dim', t('board.notPlayed')));
-      return;
-    }
-    this.body.append(h('p', '', [
-      t('board.record', { n: modeText(mode, 'unit', { n: s.best!.count }) }),
-      t('board.played', { n: s.played }),
-    ].join(' · ')));
-    const when = new Intl.DateTimeFormat(lang === 'de' ? 'de-DE' : 'en-GB',
-                                         { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    const recent = h('div', 'recent');
-    for (const r of runsOf(name).filter((r) => r.mode === mode && r.ranked).slice(-5).reverse()) {
-      recent.append(h('div', '', `${modeText(mode, 'unit', { n: r.count })} · ${when.format(r.at)}`));
-    }
-    this.body.append(recent);
   }
 
   /** Each player's best: targets in the mode's own words. */
@@ -150,7 +131,7 @@ export class Scoreboard {
       table.append(gap, row(b.me));
     }
     if (b.local) return [table, ...note];
-    const out: HTMLElement[] = [table, h('p', 'dim', t('board.players', { n: b.players }))];
+    const out: HTMLElement[] = [table];
     if (!playerName()) out.push(h('p', 'dim', t('board.joinHint')));
     return out;
   }

@@ -35,7 +35,7 @@ export function labelTexture(text: string, colour: string, scale = 1, sub = ''):
   g.font = font;
   g.textBaseline = 'middle';
   // dark plate keeps the text legible over whatever is underneath
-  g.fillStyle = 'rgba(14,16,21,.78)';
+  g.fillStyle = 'rgba(9,23,37,.82)';
   g.beginPath();
   const r = 8;
   g.moveTo(r, 0); g.arcTo(w, 0, w, h, r); g.arcTo(w, h, 0, h, r);

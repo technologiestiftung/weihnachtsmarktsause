@@ -8,13 +8,13 @@ import { HUD } from './hud';
 import { SightLayer } from './sights';
 import { skyMaterial } from './materials';
 import { FOG_DAY, FOG_NIGHT, SUN_DIR, installAtmosphere } from './atmosphere';
-import { makeGame, startPoint, type Game } from './games';
+import { MODE_INFO, makeGame, startPoint, type Game } from './games';
 import { GameLoader } from './loading';
 import { playerName } from './ranking';
 import { bestCount, recordRun } from './scores';
 import { Menu, type Choice } from './menu';
 import { applyStatic, onLang, t } from './i18n';
-import { Settings } from './settings';
+import { Settings, controls } from './settings';
 import { art } from './loadingart';
 import { unlockAudio } from './sfx';
 import { TouchControls, isTouchDevice } from './touch';
@@ -29,7 +29,7 @@ const bar = document.querySelector<HTMLElement>('#bar div')!;
 
 applyStatic();
 // the tree and the snow from the start, while the city loads behind the black
-art.show('tree', boot, document.getElementById('bootArt'));
+art.show('sky', boot);
 // browsers allow sound only after a click or key
 addEventListener('pointerdown', unlockAudio, { once: true });
 addEventListener('keydown', unlockAudio, { once: true });
@@ -161,6 +161,11 @@ let paused = false;
 let pausedAt = 0;
 
 const settings = new Settings();
+// the keys in a corner during a game (desktop only, index.html #keysPanel), in the language shown
+const keysPanel = document.querySelector<HTMLElement>('#keysPanel .keys')!;
+const fillKeys = () => keysPanel.replaceChildren(...controls(MODE_INFO[0].id, false));
+fillKeys();
+onLang(fillKeys);
 const menu = new Menu((c) => void choose(c), settings);
 
 async function choose(c: Choice): Promise<void> {
@@ -245,8 +250,9 @@ function stopGame(): Game | null {
 function endGame(abandoned: boolean): void {
   const g = stopGame();
   if (!g) return;
+  // left before the end: back to the start screen as it always is
   if (abandoned || !g.result) {
-    menu.showNote(() => t('menu.abandoned'));
+    menu.home();
     return;
   }
   const r = g.result;
@@ -369,9 +375,10 @@ addEventListener('mousemove', (e) => {
   if (pointerLocked) look(e.movementX, e.movementY);
 });
 
+// pause and camera, as icons in the look of the music and language buttons
 const touch = touchDevice ? new TouchControls(look, [
-  { label: '⏸', code: 'Escape' },
-  { label: '🎥', code: 'KeyC' },
+  { icon: '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="4" y="3" width="3" height="10" rx="1"/><rect x="9" y="3" width="3" height="10" rx="1"/></svg>', label: 'Pause', code: 'Escape' },
+  { icon: '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1zm9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z"/></svg>', label: 'Kamera', code: 'KeyC' },
 ]) : null;
 let touchShown = true;
 

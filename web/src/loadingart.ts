@@ -3,7 +3,8 @@ import { makeSleigh, poseSleigh } from './sleigh';
 
 /**
  * The start menu's and the loading screen's picture: a small 3D scene -
- * falling snow, with a lit Christmas tree on the menu. It draws on its own transparent canvas over the screen's
+ * falling snow, and on the menu a lighter snowfall with Santa crossing the top of the window. It draws on its
+ * own transparent canvas over the screen's
  * background, behind the text; a scene with a subject places it over a
  * spacer in the text column so the two line up at any window size.
  *
@@ -17,8 +18,18 @@ interface Art {
   /** How tall the subject is, centred on the origin, and how steeply the
    *  camera looks down on it (radians); the camera backs off to fit it. */
   view: [number, number];
-  /** wide: half the width in view at the subject, so things can cross it */
-  update(t: number, dt: number, wide: number): void;
+  update(t: number, dt: number, v: View): void;
+}
+
+/** What the window shows, in scene units at the subject's depth. */
+interface View {
+  /** half the width in view, so things can cross it */
+  wide: number;
+  /** the height at the window's middle and at its top edge: the subject sits
+   *  wherever its spacer is, so the middle of the window need not be at 0 */
+  mid: number;
+  /** the height, at the sleigh's depth (z = -1), that shows just under the window's top edge */
+  sky: number;
 }
 
 /* --- shared bits ----------------------------------------------------------- */
@@ -45,27 +56,29 @@ const glowTexture = () => canvasTexture(64, 64, (g) => {
 
 /* --- Weihnachtsmarkt: snow, nothing else ----------------------------------- */
 
-function snow(): Art {
+/** n flakes; size and opacity of each; how fast they fall (1 = as on the loading screen). */
+function snow(N = 1400, size = 0.22, opacity = 0.95, fall = 1): Art {
   const scene = new THREE.Scene();
-  const N = 1400;
   const pos = new Float32Array(N * 3);
   const speed = new Float32Array(N);
   for (let i = 0; i < N; i++) {
     pos.set([(Math.random() - 0.5) * 30, (Math.random() - 0.5) * 18, -16 + Math.random() * 20], i * 3);
-    speed[i] = 0.6 + Math.random() * 0.9;
+    speed[i] = (0.6 + Math.random() * 0.9) * fall;
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const flakes = new THREE.Points(geo, new THREE.PointsMaterial({
-    map: glowTexture(), size: 0.22, transparent: true, depthWrite: false, opacity: 0.95,
+    map: glowTexture(), size, transparent: true, depthWrite: false, opacity,
   }));
   scene.add(flakes);
   return {
     scene, view: [0, 0],
-    update(t, dt) {
+    update(t, dt, v) {
+      // the flakes fall round the middle of the window, wherever the subject is
+      flakes.position.y = v.mid;
       for (let i = 0; i < N; i++) {
         const k = i * 3;
-        pos[k] += Math.sin(t * 0.8 + i) * dt * 0.35;
+        pos[k] += Math.sin(t * 0.8 + i) * dt * 0.35 * fall;
         pos[k + 1] -= speed[i] * dt;
         if (pos[k + 1] < -9) pos[k + 1] += 18;
       }
@@ -74,87 +87,19 @@ function snow(): Art {
   };
 }
 
-/* --- the start menu: a lit Christmas tree in the snow ---------------------- */
+/* --- the start menu: a light snowfall, and Santa crossing the sky ---------- */
 
-function tree(): Art {
-  const art = snow();
+function sky(): Art {
+  // fewer, smaller, fainter and slower flakes than the loading screen's: the
+  // menu's text is on a box in front of them, and they shouldn't pull the eye
+  const art = snow(500, 0.17, 0.6, 0.7);
   const scene = art.scene;
   scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x101018, 0.9));
   const moon = new THREE.DirectionalLight(0xbfd0ff, 1.4);
   moon.position.set(-1, 2, 2);
   scene.add(moon);
-  // the star's glow reaches past the tree, and the view keeps the room the
-  // snow it stood on had, so the whole is ~1.3 tall with the foot 0.88 of the
-  // way down - where the menu's snowfield (index.html, #ground) begins
-  const root = new THREE.Group();
-  root.position.y = 0.04;
-  scene.add(root);
-  // the fairy lights' warm spill on the needles
-  const spill = new THREE.PointLight(0xffb36b, 0.6, 0, 2);
-  spill.position.set(0, 0, 0.35);
-  root.add(spill);
 
-  // about one unit tall, centred on the origin: foot at -0.53, star at 0.46
-  const group = new THREE.Group();
-  root.add(group);
-  const needles = new THREE.MeshStandardMaterial({ color: 0x1f5a32, roughness: 0.9, flatShading: true });
-  for (const [r, h, y] of [[0.36, 0.34, -0.25], [0.29, 0.3, -0.08], [0.21, 0.26, 0.08], [0.13, 0.22, 0.24]]) {
-    const tier = new THREE.Mesh(new THREE.ConeGeometry(r, h, 9), needles);
-    tier.position.y = y;
-    group.add(tier);
-  }
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.12, 8),
-    new THREE.MeshStandardMaterial({ color: 0x4a2f1c, roughness: 1 }));
-  trunk.position.y = -0.47;
-  group.add(trunk);
-
-  // the lights: a spiral round the outside, each twinkling to its own beat
-  const N = 72;
-  const turns = 5;
-  const palette = [0xffd9a0, 0xff4a3a, 0xffb454, 0x6fa8ff].map((c) => new THREE.Color(c));
-  const pos = new Float32Array(N * 3);
-  const base = new Float32Array(N * 3);
-  const glow = new Float32Array(N * 3);
-  const phase = new Float32Array(N);
-  for (let i = 0; i < N; i++) {
-    const u = i / N;
-    const y = -0.4 + u * 0.73;
-    const r = (0.36 * (0.35 - y)) / 0.77 + 0.015;
-    const a = u * turns * Math.PI * 2;
-    pos.set([Math.cos(a) * r, y, Math.sin(a) * r], i * 3);
-    palette[i % palette.length].toArray(base, i * 3);
-    phase[i] = Math.random() * Math.PI * 2;
-  }
-  const lights = new THREE.BufferGeometry();
-  lights.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  lights.setAttribute('color', new THREE.BufferAttribute(glow, 3));
-  const tex = glowTexture();
-  const lit = (size: number) => new THREE.PointsMaterial({
-    map: tex, size, vertexColors: true, transparent: true, depthWrite: false,
-    blending: THREE.AdditiveBlending, toneMapped: false,
-  });
-  group.add(new THREE.Points(lights, lit(0.1)), new THREE.Points(lights, lit(0.035)));
-
-  // the star faces the camera
-  const shape = new THREE.Shape();
-  for (let i = 0; i < 10; i++) {
-    const a = Math.PI / 2 + (i * Math.PI) / 5;
-    const r = i % 2 ? 0.026 : 0.062;
-    if (i) shape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-    else shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-  }
-  const star = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.015, bevelEnabled: false }),
-    new THREE.MeshBasicMaterial({ color: 0xffd27a, toneMapped: false }));
-  star.position.set(0, 0.4, 0);
-  root.add(star);
-  const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: tex, color: 0xffc46b, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.7,
-  }));
-  halo.scale.setScalar(0.3);
-  halo.position.copy(star.position);
-  root.add(halo);
-
-  // Santa crossing the sky over the tree from edge to edge of the window, 1 s
+  // Santa crossing the top of the window from edge to edge, 1 s
   // in and then 5 s after each pass; with reduced motion, never
   const sleigh = makeSleigh(true);
   const len = new THREE.Box3().setFromObject(sleigh).getSize(new THREE.Vector3()).z;
@@ -166,25 +111,16 @@ function tree(): Art {
   let start = 1;
 
   return {
-    scene, view: [1.3, 0.12],
-    update(t, dt, wide) {
-      art.update(t, dt, wide);
-      for (let i = 0; i < N; i++) {
-        const k = i * 3;
-        const b = 0.35 + 0.65 * Math.sin(t * (1.3 + (i % 5) * 0.35) + phase[i]) ** 2;
-        glow[k] = base[k] * b;
-        glow[k + 1] = base[k + 1] * b;
-        glow[k + 2] = base[k + 2] * b;
-      }
-      lights.attributes.color.needsUpdate = true;
-      halo.material.opacity = 0.6 + 0.15 * Math.sin(t * 1.7);
-      // a little past the edge, for the sleigh's length and its depth behind the tree
-      const edge = wide + 1.2;
+    scene, view: [0, 0.12],
+    update(t, dt, v) {
+      art.update(t, dt, v);
+      // a little past the edge, for the sleigh's length
+      const edge = v.wide + 1.2;
       const p = t - start;
       if (-edge + p * 1.4 > edge) start = t + 5;
       sleigh.visible = dt > 0 && t >= start;
       if (sleigh.visible) {
-        sleigh.position.set(-edge + p * 1.4, 0.56 + Math.sin(p * 1.3) * 0.03, -1);
+        sleigh.position.set(-edge + p * 1.4, v.sky + Math.sin(p * 1.3) * 0.03, -1);
         sleigh.rotation.x = -Math.cos(p * 1.3) * 0.05;
         poseSleigh(sleigh, t);
       }
@@ -192,7 +128,7 @@ function tree(): Art {
   };
 }
 
-const ARTS: Record<string, () => Art> = { markets: snow, tree };
+const ARTS: Record<string, () => Art> = { markets: () => snow(), sky };
 
 export class LoadingArt {
   private renderer: THREE.WebGLRenderer | null = null;
@@ -203,8 +139,11 @@ export class LoadingArt {
   private frame = 0;
   private t0 = 0;
   private last = 0;
-  /** Half the width in view at the subject, from the last frame drawn. */
-  private wide = 4;
+  /** What was in view at the subject, from the last frame drawn. */
+  private view: View = { wide: 4, mid: 0, sky: 3 };
+  private readonly ray = new THREE.Raycaster();
+  private readonly skyPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 1);
+  private readonly hit = new THREE.Vector3();
 
   constructor(private readonly canvas: HTMLCanvasElement) {}
 
@@ -229,7 +168,7 @@ export class LoadingArt {
       const t = (now - this.t0) / 1000;
       const dt = Math.min(0.05, (now - this.last) / 1000);
       this.last = now;
-      this.art.update(still ? 1.2 : t, still ? 0 : dt, this.wide);
+      this.art.update(still ? 1.2 : t, still ? 0 : dt, this.view);
       this.draw();
       if (!still) this.frame = requestAnimationFrame(tick);
     };
@@ -268,11 +207,18 @@ export class LoadingArt {
     const [tall, down] = art.view;
     const visible = 2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
     const dist = tall && box.height ? tall / (visible * (box.height / h)) : 8;
-    this.wide = (visible * dist * cam.aspect) / 2;
+    // scene units per pixel at the subject; the subject's centre is at cy
+    const unit = (visible * dist) / h;
+    this.view.wide = (unit * w) / 2;
+    this.view.mid = (cy - h / 2) * unit;
     cam.position.set(0, Math.sin(down) * dist, Math.cos(down) * dist);
     cam.lookAt(0, 0, 0);
     cam.setViewOffset(w, h, 0, h / 2 - cy, w, h);
     cam.updateProjectionMatrix();
+    // where the sleigh flies: the plane it is on (z = -1), seen 7 % down the window (at least 48 px)
+    const row = Math.max(48, h * 0.07);
+    this.ray.setFromCamera(new THREE.Vector2(0, 1 - (2 * row) / h), cam);
+    if (this.ray.ray.intersectPlane(this.skyPlane, this.hit)) this.view.sky = this.hit.y;
     r.render(art.scene, cam);
   }
 }
