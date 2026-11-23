@@ -58,7 +58,7 @@ const de = {
   "menu.imprint": "Impressum",
   "menu.privacy": "Datenschutz",
   "menu.sources":
-    'Datenquellen: <a href="https://daten.berlin.de/datensaetze/simple_search_wwwberlindesenwebservicemaerktefesteweihnachtsmaerkte" target="_blank" rel="noopener">{markets}</a> · Gebäude, Straßen: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap-Mitwirkende</a> (ODbL), modelliert mit <a href="https://osm2world.org" target="_blank" rel="noopener">OSM2World</a> · Gelände: <a href="https://gdi.berlin.de/geonetwork/srv/ger/catalog.search#/metadata/85a97801-36bb-4627-8790-f5e53b1e38b3" target="_blank" rel="noopener">Airborne Laserscanning</a> (SenSBW) · Bäume: <a href="https://gdi.berlin.de/geonetwork/srv/ger/catalog.search#/metadata/3368004a-d596-336a-8fdf-c4391f3313dd" target="_blank" rel="noopener">Baumbestand Berlin</a> (SenMVKU) · Bezirke: <a href="https://gdi.berlin.de/geonetwork/srv/ger/catalog.search#/metadata/ecb4fc8b-8bf0-326c-ba70-ab805e0c659f" target="_blank" rel="noopener">ALKIS Berlin Bezirke</a> (SenSBW) · Geodaten Berlin unter <a href="https://www.govdata.de/dl-de/zero-2-0" target="_blank" rel="noopener">dl-de/zero-2.0</a>',
+    'Datenquellen: <a href="https://daten.berlin.de/datensaetze/simple_search_wwwberlindesenwebservicemaerktefesteweihnachtsmaerkte" target="_blank" rel="noopener">{markets}</a> · Gebäude, Straßen: © OpenStreetMap-Mitwirkende (ODbL), modelliert mit OSM2World · Gelände: Airborne Laserscanning (SenSBW) · Bäume: Baumbestand Berlin (SenMVKU) · Bezirke: ALKIS Berlin Bezirke (SenSBW) · Geodaten Berlin unter dl-de/zero-2.0',
   "menu.contact":
     'Den Quellcode der Weihnachtsmarkt-Sause findest du auf <a href="https://github.com/technologiestiftung/weihnachtsmarktsause" target="_blank" rel="noopener">GitHub</a>. ' +
     'Eine Frage oder Feedback? Schreib uns an <a href="mailto:odis@ts.berlin">odis@ts.berlin</a>',
@@ -67,7 +67,7 @@ const de = {
     'Dieses Spiel basiert komplett auf Berlins <a href="https://daten.berlin.de" target="_blank" rel="noopener">Open Data</a>.',
   "menu.odisAbout":
     "Die Open Data Informationsstelle ist ein Projekt der Technologiestiftung Berlin, " +
-    'gefördert durch die <a href="https://www.berlin.de/rbmskzl/" target="_blank" rel="noopener">Senatskanzlei Berlin</a>.',
+    'gefördert durch die Senatskanzlei Berlin.',
   "settings.controls": "Anleitung",
   "settings.music": "Musik",
   "menu.unranked": "dort gespielt, wo du standest – ohne Wertung",
@@ -179,7 +179,7 @@ const en: Record<Key, string> = {
   "menu.imprint": "Imprint",
   "menu.privacy": "Privacy",
   "menu.sources":
-    'Data sources: <a href="https://daten.berlin.de/datensaetze/simple_search_wwwberlindesenwebservicemaerktefesteweihnachtsmaerkte" target="_blank" rel="noopener">{markets}</a> · buildings, streets: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a> (ODbL), modelled by <a href="https://osm2world.org" target="_blank" rel="noopener">OSM2World</a> · terrain: <a href="https://gdi.berlin.de/geonetwork/srv/ger/catalog.search#/metadata/85a97801-36bb-4627-8790-f5e53b1e38b3" target="_blank" rel="noopener">Airborne Laserscanning</a> (SenSBW) · trees: <a href="https://gdi.berlin.de/geonetwork/srv/ger/catalog.search#/metadata/3368004a-d596-336a-8fdf-c4391f3313dd" target="_blank" rel="noopener">Baumbestand Berlin</a> (SenMVKU) · districts: <a href="https://gdi.berlin.de/geonetwork/srv/ger/catalog.search#/metadata/ecb4fc8b-8bf0-326c-ba70-ab805e0c659f" target="_blank" rel="noopener">ALKIS Berlin Bezirke</a> (SenSBW) · Berlin geodata under <a href="https://www.govdata.de/dl-de/zero-2-0" target="_blank" rel="noopener">dl-de/zero-2.0</a>',
+    'Data sources: <a href="https://daten.berlin.de/datensaetze/simple_search_wwwberlindesenwebservicemaerktefesteweihnachtsmaerkte" target="_blank" rel="noopener">{markets}</a> · buildings, streets: © OpenStreetMap contributors (ODbL), modelled by OSM2World · terrain: Airborne Laserscanning (SenSBW) · trees: Baumbestand Berlin (SenMVKU) · districts: ALKIS Berlin Bezirke (SenSBW) · Berlin geodata under dl-de/zero-2.0',
   "menu.contact":
     'The source code of the Weihnachtsmarkt-Sause is on <a href="https://github.com/technologiestiftung/weihnachtsmarktsause" target="_blank" rel="noopener">GitHub</a>. ' +
     'A question or feedback? Write to us at <a href="mailto:odis@ts.berlin">odis@ts.berlin</a>',
@@ -188,7 +188,7 @@ const en: Record<Key, string> = {
     'This game is built entirely on Berlin’s <a href="https://daten.berlin.de" target="_blank" rel="noopener">open data</a>.',
   "menu.odisAbout":
     "The Open Data Informationsstelle is a project of the Technologiestiftung Berlin, " +
-    'funded by the <a href="https://www.berlin.de/rbmskzl/" target="_blank" rel="noopener">Senatskanzlei Berlin</a>.',
+    'funded by the Senatskanzlei Berlin.',
   "settings.controls": "How to play",
   "settings.music": "Music",
   "menu.unranked": "played where you stood — unranked",
