@@ -71,7 +71,6 @@ const de = {
   "settings.controls": "Anleitung",
   "settings.music": "Musik",
   "menu.unranked": "dort gespielt, wo du standest – ohne Wertung",
-  "menu.newBest": "★ neuer Bestwert!",
   "menu.route": "Deine Route",
   "menu.routeHint": "Alle Infos zu den Märkten im Weihnachtsmarkt-Finder",
   "menu.best": "Dein Bestwert: {best}",
@@ -83,17 +82,14 @@ const de = {
   "board.loading": "lädt…",
   "board.offline": "Die gemeinsame Bestenliste ist gerade nicht erreichbar.",
   "board.empty": "Noch keine Einträge – hol dir Platz 1!",
-  "board.joinHint": "Gib oben einen Spitznamen ein, um mitzuspielen.",
   "board.course": "Start am Bahnhof Friedrichstraße",
-  "board.name": "Dein Name in der Bestenliste",
-  "board.namePh": "Spitzname",
-  "board.save": "Speichern",
-  "board.ok": "Gespeichert – deine Spiele kommen jetzt in die Bestenliste.",
+  "board.namePh": "Name",
   "board.taken": "Diesen Namen hat schon jemand.",
+  "board.blocked": "Dieser Name ist nicht erlaubt, bitte nimm einen anderen.",
   "board.invalid": "2–20 Zeichen: Buchstaben, Ziffern, Leerzeichen, - _ .",
   "board.privacy":
-    "Bitte einen Spitznamen, nicht deinen echten Namen. Gespeichert werden nur Name und Ergebnisse – " +
-    "kein Konto, keine IP-Adresse. Ohne Namen bleiben deine Spiele in diesem Browser.",
+    "Gespeichert werden nur Name und Ergebnisse, kein Konto, keine IP-Adresse. " +
+    "Der Name ist in der Bestenliste für alle sichtbar. Ohne Namen wird kein Ergebnis gespeichert.",
   "board.rank": "🏆 Platz {rank}",
   "board.localRank": "🏆 Platz {rank} in diesem Browser",
   "board.local":
@@ -101,8 +97,8 @@ const de = {
   "board.localNote":
     "Die gemeinsame Bestenliste ist gerade nicht erreichbar – das sind die Spiele in diesem Browser.",
   "board.noName": "(ohne Namen)",
-  "board.join": "Mit Spitznamen in die Bestenliste:",
-  "board.joinBtn": "Eintragen",
+  "board.join": "Gib einen Namen ein, um dein Ergebnis in der Bestenliste zu speichern:",
+  "board.joinBtn": "Speichern",
   "menu.short": "Nur {n} {n|Markt|Märkte} am Bestwert vorbei – nochmal?",
   "game.go": "LOS!",
   "pause.title": "Pause",
@@ -113,11 +109,8 @@ const de = {
   "pause.note": "<kbd>Esc</kbd> spielt weiter",
   "dur.s": "{n}\u00a0Sekunden",
   "dur.m": "{n}\u00a0{n|Minute|Minuten}",
-  "game.next": "Nächster Markt in {d}:",
   "game.openToday": "heute geöffnet {times}",
   "game.closedToday": "heute geschlossen",
-  "game.none": "in der Nähe ist nichts mehr",
-  "game.noTargets": "hier im gebauten Gebiet gibt es keine Ziele",
   "game.time": "+{n} s",
   "game.record": "🏆 NEUER REKORD!",
   "mode.markets.title": "Weihnachtsmarkt-Sause",
@@ -128,7 +121,7 @@ const de = {
     "über die Berliner Weihnachtsmärkte fliegen und so viele Märkte wie möglich beschenken. " +
     "Wer schafft es, in {dur} die meisten Märkte abzuklappern?",
   "mode.markets.source": "Weihnachtsmärkte 2026: SenWEB (CC BY)",
-  "mode.markets.score": "von {of} Weihnachtsmärkten beschenkt",
+  "mode.markets.score": "Weihnachtsmärkte beschenkt",
   "mode.markets.unit": "{n} {n|Markt|Märkte}",
   "mode.markets.cheers":
     "Ho ho ho!|Volltreffer!|Bescherung!|Paket zugestellt!|Zack, beschenkt!|Pünktlich geliefert!|" +
@@ -136,8 +129,6 @@ const de = {
     "Frohes Fest!|Glühwein muss warten – weiter!|Grüße nach {district}!|{district} ist beschenkt!",
   "mode.markets.won": "Frohe Weihnachten, Berlin!",
   "mode.markets.lost": "Feierabend, Santa",
-  "mode.markets.line":
-    "{n} von {of} Weihnachtsmärkten haben Geschenke bekommen.",
 };
 
 type Key = keyof typeof de;
@@ -201,7 +192,6 @@ const en: Record<Key, string> = {
   "settings.controls": "How to play",
   "settings.music": "Music",
   "menu.unranked": "played where you stood — unranked",
-  "menu.newBest": "★ new best!",
   "menu.route": "Your route",
   "menu.routeHint": "All about these markets in the Christmas Market Finder",
   "menu.best": "Your best: {best}",
@@ -213,17 +203,14 @@ const en: Record<Key, string> = {
   "board.loading": "loading…",
   "board.offline": "The shared board can't be reached right now.",
   "board.empty": "No entries yet — take first place!",
-  "board.joinHint": "Enter a nickname above to join in.",
   "board.course": "Starting at Friedrichstraße station",
-  "board.name": "Your name on the board",
-  "board.namePh": "nickname",
-  "board.save": "Save",
-  "board.ok": "Saved — your games now go on the board.",
+  "board.namePh": "name",
   "board.taken": "Someone already has that name.",
+  "board.blocked": "That name isn't allowed, please pick another.",
   "board.invalid": "2–20 characters: letters, digits, spaces, - _ .",
   "board.privacy":
-    "Please use a nickname, not your real name. Only the name and results are stored — " +
-    "no account, no IP address. Without a name your games stay in this browser.",
+    "Only the name and results are stored, no account, no IP address. " +
+    "The name is visible to everyone on the board. Without a name no result is saved.",
   "board.rank": "🏆 #{rank}",
   "board.localRank": "🏆 #{rank} in this browser",
   "board.local":
@@ -231,8 +218,8 @@ const en: Record<Key, string> = {
   "board.localNote":
     "The shared board can't be reached right now — these are the games in this browser.",
   "board.noName": "(no name)",
-  "board.join": "Join the board with a nickname:",
-  "board.joinBtn": "Join",
+  "board.join": "Enter a name to save your result on the board:",
+  "board.joinBtn": "Save",
   "menu.short": "Just {n} {n|market|markets} short of your best — again?",
   "game.go": "GO!",
   "pause.title": "Paused",
@@ -243,11 +230,8 @@ const en: Record<Key, string> = {
   "pause.note": "<kbd>Esc</kbd> resumes",
   "dur.s": "{n}\u00a0seconds",
   "dur.m": "{n}\u00a0{n|minute|minutes}",
-  "game.next": "Nearest market, {d} away:",
   "game.openToday": "open today {times}",
   "game.closedToday": "closed today",
-  "game.none": "nothing left nearby",
-  "game.noTargets": "no targets in the built area here",
   "game.time": "+{n} s",
   "game.record": "🏆 NEW RECORD!",
   "mode.markets.title": "Christmas Market Dash",
@@ -258,7 +242,7 @@ const en: Record<Key, string> = {
     "Christmas markets and bring presents to as many of them as you can. " +
     "Who can reach the most markets in {dur}?",
   "mode.markets.source": "Weihnachtsmärkte 2026: SenWEB (CC BY)",
-  "mode.markets.score": "of {of} Christmas markets visited",
+  "mode.markets.score": "Christmas markets visited",
   "mode.markets.unit": "{n} {n|market|markets}",
   "mode.markets.cheers":
     "Ho ho ho!|Bullseye!|Presents delivered!|Parcel dropped!|Right on time!|" +
@@ -266,7 +250,6 @@ const en: Record<Key, string> = {
     "Merry Christmas!|The mulled wine can wait – onwards!|Greetings to {district}!|{district}, sorted!",
   "mode.markets.won": "Merry Christmas, Berlin!",
   "mode.markets.lost": "Clocking off, Santa",
-  "mode.markets.line": "{n} of {of} Christmas markets got presents.",
 };
 
 const DICTS: Record<Lang, Record<Key, string>> = { de, en };

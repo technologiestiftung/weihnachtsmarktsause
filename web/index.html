@@ -193,10 +193,6 @@
   .modal p.dim, .modal p.src { color: var(--dim); }
   .modal p.src { font-size: 9.5px; margin-top: 12px; }
   .modal p.sub { color: var(--dim); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; margin: 14px 0 4px; }
-  #board form.name label { display: block; font-size: 10px; color: var(--dim); letter-spacing: .1em;
-    text-transform: uppercase; margin-bottom: 4px; }
-  .modal p.msg { min-height: 1.3em; font-size: 10.5px; color: var(--accent); }
-  .modal p.msg.bad { color: #ff8a7a; }
   form .row { display: flex; gap: 6px; }
   form .row input { flex: 1; min-width: 0; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.16);
     border-radius: 6px; color: var(--ui); font: inherit; font-size: 13px; padding: 7px 9px; }
@@ -292,11 +288,6 @@
     animation: rush .25s linear infinite; }
   body.paused #rush { display: none !important; }
   @keyframes rush { 50% { transform: rotate(2deg) scale(1.03); } }
-  #gCompass { display: flex; align-items: center; justify-content: center; gap: 7px; color: rgba(245,248,254,.8); font-size: 11px; }
-  #gTarget { max-width: 360px; min-width: 0; }
-  /* the distance on one line, the market's name on the next, each cut short only if it must */
-  #gTarget span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #gTarget .tn { color: var(--light); font-weight: 500; }
   #banner { position: fixed; left: 50%; top: 31%; transform: translate(-50%, -8px); z-index: 6; pointer-events: none;
     font-size: 17px; font-weight: 600; letter-spacing: .03em; background: rgba(9,23,37,.86); padding: 10px 20px;
     border-radius: 10px; border: 1px solid rgba(189,163,59,.55); opacity: 0; transition: opacity .25s, transform .25s;
@@ -422,7 +413,6 @@
     <div id="gTime">5:00</div>
     <div id="gPts"><b id="gPoints">0</b></div>
     <div id="gScore"></div>
-    <div id="gCompass"><span id="gTarget"></span></div>
   </div>
   <div class="panel" id="credits" data-i18n="credits"></div>
   <div class="panel" id="keysPanel"><div class="keys"></div></div>

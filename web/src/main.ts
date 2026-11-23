@@ -10,8 +10,7 @@ import { skyMaterial } from './materials';
 import { FOG_DAY, FOG_NIGHT, SUN_DIR, installAtmosphere } from './atmosphere';
 import { MODE_INFO, makeGame, startPoint, type Game } from './games';
 import { GameLoader } from './loading';
-import { playerName } from './ranking';
-import { bestCount, recordRun } from './scores';
+import { bestCount } from './scores';
 import { Menu, type Choice } from './menu';
 import { applyStatic, onLang, t } from './i18n';
 import { Settings, controls } from './settings';
@@ -255,10 +254,8 @@ function endGame(abandoned: boolean): void {
     menu.home();
     return;
   }
-  const r = g.result;
-  const run = { mode: g.info.id, ranked: gameRanked, count: r.count, at: Date.now(), name: playerName() ?? undefined };
-  const best = recordRun(run);
-  menu.showResult(g.info.id, g.result, best, run);
+  // kept only once a nickname is given, on the result screen (menu.ts)
+  menu.showResult(g.info.id, g.result, { mode: g.info.id, ranked: gameRanked, count: g.result.count, at: Date.now() });
 }
 
 /* --- pause ---------------------------------------------------------------- */

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import pg from 'pg';
+import { blockedName } from './_names.js';
 import { connection } from './_pg.js';
 
 /**
@@ -95,13 +96,14 @@ export function rateLimit(req: Req): void {
   if (recent.size > 5000) recent.clear();
 }
 
-/** 2-20 letters, digits, spaces, - _ . ; returns the cleaned name. */
+/** 2-20 letters, digits, spaces, - _ . and not a refused word (_names.ts); returns the cleaned name. */
 export function checkName(v: unknown): string {
   if (typeof v !== 'string') throw new HttpError(400, 'bad name');
   const name = v.normalize('NFC').trim().replace(/\s+/g, ' ');
   if (!/^[\p{L}\p{N} _.-]{2,20}$/u.test(name) || !/[\p{L}\p{N}]/u.test(name)) {
     throw new HttpError(400, 'bad name');
   }
+  if (blockedName(name)) throw new HttpError(422, 'name not allowed');
   return name;
 }
 

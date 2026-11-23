@@ -3,7 +3,7 @@ import type { HUD } from './hud';
 import type { Overview } from './overview';
 import type { Player } from './player';
 import { lang, t } from './i18n';
-import { distanceText, labelTexture, setDistance, type Label } from './labels';
+import { labelTexture, setDistance, type Label } from './labels';
 import { sfx } from './sfx';
 import type { World } from './world';
 
@@ -52,8 +52,6 @@ export interface Result {
   title: string;
   /** Targets reached. */
   count: number;
-  /** Targets there were. */
-  of: number;
   /** The markets reached, in order: the finder's id and the name. */
   route: { id: number; name: string }[];
 }
@@ -213,6 +211,7 @@ function starIcon(open: boolean): THREE.Texture {
   return t;
 }
 
+const SCRATCH = new THREE.Vector3();
 const COLUMN = new THREE.CylinderGeometry(1, 1, 1, 12, 1, true).translate(0, 0.5, 0);
 
 /** A star over the target and a column of light up into the sky, with the
@@ -411,8 +410,8 @@ export class Game {
   private readonly pace = 0.8;
   private readonly snow = new Snow();
   /** Beacons over the nearest markets: how many, how far out, how tall and wide. */
-  private readonly beaconCount = 14;
-  private readonly beaconRange = 9000;
+  private readonly beaconCount = 10;
+  private readonly beaconRange = 5000;
   private readonly beaconHeight = 320;
   private readonly beaconWidth = 5;
 
@@ -468,7 +467,7 @@ export class Game {
   start(): void {
     this.fov0 = this.host.camera.fov;
     el('game').classList.add('on');
-    this.render(this.next());
+    this.render();
     this.host.player.setSleigh(true);
     this.host.setNight(1);
     this.host.scene.add(this.snow.points);
@@ -657,8 +656,18 @@ export class Game {
     }
     const nxt = this.next();
     const now = performance.now() / 1000;
-    for (const [s, b] of this.beacons) {
+    const near = [...this.beacons]
+      .map(([s, b]) => [s === nxt ? -1 : Math.hypot(s.x - p.pos.x, s.z - p.pos.z), s, b] as const)
+      .sort((a, b) => a[0] - b[0]);
+    // nearest first (the next target before all): a marker that would land on
+    // a nearer one on screen is left out, so names don't pile up
+    const taken: [number, number][] = [];
+    for (const [, s, b] of near) {
       b.update(now, s === nxt, Math.hypot(s.x - p.pos.x, s.z - p.pos.z));
+      const at = SCRATCH.copy(b.group.position).project(this.host.camera);
+      const sx = at.x * innerWidth / 2, sy = at.y * innerHeight / 2;
+      b.group.visible = at.z > 1 || !taken.some(([x, y]) => Math.abs(x - sx) < 150 && Math.abs(y - sy) < 50);
+      if (b.group.visible && at.z <= 1) taken.push([sx, sy]);
     }
     this.updateParticles(dt);
     this.updateView(dt);
@@ -666,7 +675,7 @@ export class Game {
       this.bannerTimer -= dt;
       if (this.bannerTimer <= 0) el('banner').classList.remove('on');
     }
-    this.render(nxt);
+    this.render();
   }
 
   /** The camera kick on a hit and the widening rush of speed. */
@@ -712,7 +721,7 @@ export class Game {
     if (this.state === 'over') return;
     this.state = 'over';
     this.result = { won: this.count > 0, title: this.text(this.count >= 8 ? 'won' : 'lost'),
-                    count: this.count, of: this.spots.length, route: [...this.route] };
+                    count: this.count, route: [...this.route] };
     if (this.result.won) sfx.win(); else sfx.lose();
   }
 
@@ -774,21 +783,13 @@ export class Game {
     }
   }
 
-  private render(nxt: Spot | null): void {
-    const p = this.host.player;
+  private render(): void {
     const left = this.limit - this.time;
     const clock = el('gTime');
     put(clock, fmt(left));
     clock.classList.toggle('low', left < 30 && this.state === 'play');
     put(el('gPoints'), String(this.count));
-    put(el('gScore'), this.text('score', { n: this.count, of: this.spots.length }));
-    // the distance first: a long market name is cut short at the end, not the distance
-    // two lines: how far, then the name on its own, so a long name is not cut off by the distance
-    const esc = (v: string) => v.replace(/[&<>]/g, (c) => `&#${c.charCodeAt(0)};`);
-    put(el('gTarget'), nxt
-      ? `<span>${esc(t('game.next', { d: distanceText(Math.hypot(nxt.x - p.pos.x, nxt.z - p.pos.z)) }))}</span>`
-        + `<span class="tn">${esc(nxt.n)}</span>`
-      : esc(t(this.spots.length ? 'game.none' : 'game.noTargets')), true);
+    put(el('gScore'), this.text('score'));
   }
 }
 

@@ -3,8 +3,8 @@ import { better, isSent, markSent, nameRuns, runs, runsOf, type Run } from './sc
 
 /**
  * The shared board: everyone's best on a course, kept in a PostgreSQL database
- * behind a small API (api/). Joining is a nickname, nothing more;
- * until a player picks one, their runs stay in this browser (scores.ts).
+ * behind a small API (api/). Joining is a nickname, nothing more, given
+ * after a game; a game without one is not kept at all (menu.ts).
  *
  * A name is held by a random token this browser keeps, so nobody else can
  * post under it. Each name has its own, so friends taking turns on one device
@@ -186,8 +186,8 @@ export function standing(run: Run): Promise<Board> {
   return fetchBoard(run.mode).then((b) => (b.local ? localBoard(run.mode, run.name ?? playerName()) : b));
 }
 
-/** 'local': kept in this browser, as there is no board to ask. */
-export type NameResult = 'ok' | 'local' | 'taken' | 'invalid' | 'offline';
+/** 'local': kept in this browser, as there is no board to ask; 'blocked': the board refuses the name (api/_names.ts). */
+export type NameResult = 'ok' | 'local' | 'taken' | 'invalid' | 'blocked' | 'offline';
 
 /**
  * Play under a name: a new one, or one played under here before. Games from
@@ -203,7 +203,7 @@ export async function setPlayerName(v: string): Promise<NameResult> {
     await call('player', { token: token(name), name });
   } catch (e) {
     const m = (e as Error).message;
-    if (m !== OFFLINE) return m === '409' ? 'taken' : m === '400' ? 'invalid' : 'offline';
+    if (m !== OFFLINE) return m === '409' ? 'taken' : m === '400' ? 'invalid' : m === '422' ? 'blocked' : 'offline';
     result = 'local';
   }
   set(NAME, name);

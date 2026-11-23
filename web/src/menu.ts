@@ -2,7 +2,7 @@ import { MODE_INFO, modeText, type Result } from './games';
 import { lang, onLang, setLang, t } from './i18n';
 import { playerName, setPlayerName, standing, type Board } from './ranking';
 import { Scoreboard } from './scoreboard';
-import { bestCount, type Run } from './scores';
+import { bestCount, recordRun, type Run } from './scores';
 import type { Settings } from './settings';
 import { art } from './loadingart';
 import { audioSettings, musicAudible, onAudio, setAudio } from './sfx';
@@ -116,37 +116,41 @@ export class Menu {
     this.onPick(c);
   }
 
-  /** After a game: how many markets, and its place on the shared board. */
-  showResult(id: string, r: Result, newBest: boolean, run: Run): void {
+  /**
+   * After a game: how many markets, and a field for the nickname. The run is
+   * kept - here and on the shared board - only once a name is given; then
+   * the field gives way to its place on the board.
+   */
+  showResult(id: string, r: Result, run: Run): void {
     this.lastMode = id;
-    this.standing = run.ranked && playerName() ? standing(run) : null;
-    this.drawResult(id, r, newBest, run);
+    this.standing = null;
+    this.drawResult(id, r, run);
     this.show();
   }
 
-  private drawResult(id: string, r: Result, newBest: boolean, run: Run): void {
+  private drawResult(id: string, r: Result, run: Run): void {
     const best = run.ranked ? bestCount(id) : null;
     // the title was written in the language the game ended in
     const kids: HTMLElement[] = [
       h('h3', '', r.title),
       h('div', 'big', modeText(id, 'unit', { n: r.count })),
-      h('p', '', modeText(id, 'line', { n: r.count, of: r.of })),
     ];
     if (!run.ranked) kids.push(h('p', '', t('menu.unranked')));
-    else if (newBest) kids.push(h('p', '', t('menu.newBest')));
     // close enough to taste it: say how close
     else if (best !== null && best > r.count && r.count >= best * 0.7) {
       kids.push(h('p', 'short', t('menu.short', { n: best - r.count })));
-    } else if (best !== null) kids.push(h('p', '', t('menu.best', { best: modeText(id, 'unit', { n: best }) })));
-    if (run.ranked) kids.push(this.rankLine(id, r, newBest, run));
+    } else if (best !== null && best > r.count) {
+      kids.push(h('p', '', t('menu.best', { best: modeText(id, 'unit', { n: best }) })));
+    }
+    if (run.ranked) kids.push(this.rankLine(id, r, run));
     if (r.route?.length) kids.push(this.routeList(r.route));
     this.result.replaceChildren(...kids);
     this.result.classList.add('on');
-    this.redraw = () => this.drawResult(id, r, newBest, run);
+    this.redraw = () => this.drawResult(id, r, run);
   }
 
-  /** The run's place among everyone on the course; without a name, a field to join. */
-  private rankLine(id: string, r: Result, newBest: boolean, run: Run): HTMLElement {
+  /** The run's place among everyone on the course, once saved; until then the field for a name. */
+  private rankLine(id: string, r: Result, run: Run): HTMLElement {
     if (this.standing) {
       const p = h('p', 'rank', '…');
       this.standing.then(
@@ -163,11 +167,12 @@ export class Menu {
     input.setAttribute('autocomplete', 'nickname');
     input.spellcheck = false;
     input.placeholder = t('board.namePh');
+    input.value = playerName() ?? '';
     const go = h('button', '', t('board.joinBtn'));
     const msg = h('p', 'src');
     const row = h('div', 'row');
     row.append(input, go);
-    form.append(h('p', '', t('board.join')), row, msg);
+    form.append(h('p', '', t('board.join')), row, msg, h('p', 'src', t('board.privacy')));
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       go.disabled = true;
@@ -178,8 +183,10 @@ export class Menu {
         msg.textContent = t(`board.${res}`);
         return;
       }
+      run.name = playerName() ?? undefined;
+      recordRun(run);
       this.standing = standing(run);
-      this.drawResult(id, r, newBest, run);
+      this.drawResult(id, r, run);
     });
     return form;
   }
