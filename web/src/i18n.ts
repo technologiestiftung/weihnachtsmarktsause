@@ -103,7 +103,7 @@ const de = {
     + 'über die Berliner Weihnachtsmärkte fliegen und so viele Märkte wie möglich beschenken. '
     + 'Wer schafft es, in {dur} die meisten Märkte zu beschenken?',
   'mode.markets.controls': 'S bremsen · A D lenken · Maus oder R F steigen',
-  'mode.markets.source': 'Weihnachtsmärkte 2025: SenWEB (CC BY)',
+  'mode.markets.source': 'Weihnachtsmärkte 2026: SenWEB (CC BY)',
   'mode.markets.score': 'von {of} Weihnachtsmärkten beschenkt',
   'mode.markets.unit': '{n} {n|Markt|Märkte}',
   'mode.markets.hit': '🎁 Ho ho ho! {name}',
@@ -204,7 +204,7 @@ const en: Record<Key, string> = {
     + 'Christmas markets and bring presents to as many of them as you can. '
     + 'Who can reach the most markets in {dur}?',
   'mode.markets.controls': 'S brake · A D steer · mouse or R F climb',
-  'mode.markets.source': 'Weihnachtsmärkte 2025: SenWEB (CC BY)',
+  'mode.markets.source': 'Weihnachtsmärkte 2026: SenWEB (CC BY)',
   'mode.markets.score': 'of {of} Christmas markets visited',
   'mode.markets.unit': '{n} {n|market|markets}',
   'mode.markets.hit': '🎁 Ho ho ho! {name}',

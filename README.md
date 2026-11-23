@@ -60,8 +60,11 @@ quality tier (`web/src/quality.ts`; `?quality=low|high` to choose).
 
 `web/public/data/games/markets.json` holds the markets and is served with
 the app (it is small and fixed for the season): `[x, z, name, dates]` per
-market, in world metres. Only markets inside the 3D city are listed; the
-eleven in Brandenburg (Potsdam, Königs Wusterhausen, Prenzlau) are left out.
+market, in world metres. `npm run data:markets` builds it from
+`markets_<year>.csv` next to it, the data of the ODIS Weihnachtsmarktfinder,
+so the game and the finder list the same markets. Only markets inside the 3D
+city are listed; those in Brandenburg (Potsdam, Bernau, Königs Wusterhausen,
+...) are left out.
 
 ## Scores
 
