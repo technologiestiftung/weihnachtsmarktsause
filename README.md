@@ -59,10 +59,8 @@ quality tier (`web/src/quality.ts`; `?quality=low|high` to choose).
 ## Data
 
 `web/public/data/games/markets.json` holds the markets and is served with
-the app (it is small and fixed for the season): `[x, z, name, dates, id, hours]`
-per market, in world metres, with the finder's id (the result links each market
-reached to it there) and its opening times, so the markers show which markets
-are open today. `npm run data:markets` builds it from
+the app (it is small and fixed for the season): `[x, z, name, dates]` per
+market, in world metres. `npm run data:markets` builds it from
 `markets_<year>.csv` next to it, the data of the ODIS Weihnachtsmarktfinder,
 so the game and the finder list the same markets. Only markets inside the 3D
 city are listed; those in Brandenburg (Potsdam, Bernau, Königs Wusterhausen,
@@ -73,8 +71,6 @@ city are listed; those in Brandenburg (Potsdam, Bernau, Königs Wusterhausen,
 The high scores live in a Postgres database (schema`weihnachtsmarktsause`), 
 reached only by the small API in `api/`, which holds the
 credentials and checks each run. This API accepts runs for the Sause only.
-A run is kept, in the browser and on the board, only once the player enters
-a name on the result screen after the game.
 
 ## Performance
 

@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import type { HUD } from './hud';
 import type { Overview } from './overview';
 import type { Player } from './player';
-import { lang, t } from './i18n';
-import { labelTexture, setDistance, type Label } from './labels';
+import { t } from './i18n';
+import { distanceText, labelTexture, setDistance, type Label } from './labels';
 import { sfx } from './sfx';
 import type { World } from './world';
 
@@ -52,8 +52,8 @@ export interface Result {
   title: string;
   /** Targets reached. */
   count: number;
-  /** The markets reached, in order: the finder's id and the name. */
-  route: { id: number; name: string }[];
+  /** Targets there were. */
+  of: number;
 }
 
 export interface GameHost {
@@ -85,36 +85,20 @@ export function startPoint(overview: Overview, world: World): [number, number] |
   return s && world.covers(s.x, s.z) ? [s.x, s.z] : null;
 }
 
-/** The markers, as the finder's: gold stars, the ones open today bright, the rest dimmed. */
-const GOLD = '#bda33b';
-const DIM = '#7d8ca0';
-/** The names on the markers, a shade lighter than the gold so they read on the dark plate. */
-const NAME_OPEN = '#d8bf5a';
-const NAME_SHUT = '#9fb1c6';
-
-/** When a market is open (scripts/markets.ts): first and last day, times per weekday
- *  Mo..So ('' closed), days closed and days with other times; dates YYYY-MM-DD. */
-interface Hours { f: string; t: string; w: string[]; c?: string[]; h?: Record<string, string> }
+/** Every target's pin: a tree in warm gold. */
+const PIN = '🎄';
+const PIN_COLOUR = '#e8b23a';
 
 interface Spot {
   x: number;
   z: number;
   n: string;
-  /** The finder's id: its ?id= opens this market there. */
-  id: number;
-  hours: Hours | null;
-  /** Today's times ('11:00-22:00'), or null where it is closed today. */
-  today: string | null;
-  /** Drawn dimmed: closed today, in season (set by prepare()). */
-  dim: boolean;
-  /** The district it is in, as the data has it. */
-  district: string;
   done: boolean;
   /** How close counts as there. */
   reach: number;
 }
 
-type RawPoint = [number, number, string, string, number?, Hours?, string?];
+type RawPoint = [number, number, string, string, string?];
 
 // small and fixed for the season: served with the app, not the tiles
 const DATA = 'data/games/';
@@ -126,98 +110,48 @@ async function points(file: string): Promise<{ points: RawPoint[]; attribution: 
 }
 
 function spot(p: RawPoint, reach: number): Spot {
-  const hours = p[5] ?? null;
-  return { x: p[0], z: p[1], n: p[2], id: p[4] ?? 0, hours, today: hours && hoursOn(hours, new Date()),
-           dim: false, district: p[6] ?? '', done: false, reach };
-}
-
-/** A day as YYYY-MM-DD, in local time. */
-const dayKey = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-/** The times a market keeps on a day, or null where it is closed then. */
-function hoursOn(h: Hours, d: Date): string | null {
-  const k = dayKey(d);
-  if (k < h.f || k > h.t || h.c?.includes(k)) return null;
-  if (h.h && k in h.h) return h.h[k] || null;
-  return h.w[(d.getDay() + 6) % 7] || null;
-}
-
-/** '11:00-22:00' -> '11–22 Uhr' (German) or '11:00–22:00' (English); half hours kept. */
-function timesText(span: string): string {
-  const [a, b] = span.split('-');
-  if (lang !== 'de') return `${a}–${b}`;
-  const short = (x: string) => x.replace(/:00$/, '');
-  return `${short(a)}–${short(b)} Uhr`;
-}
-
-/** 2026-11-29 -> 29.11. (German) or 29/11 (English) */
-const dateText = (iso: string) => {
-  const [, m, d] = iso.split('-');
-  return lang === 'de' ? `${d}.${m}.` : `${d}/${m}`;
-};
-
-/**
- * The line under a marker's star: today's times, or that it is closed today.
- * Out of season - no market open today at all - the season's dates instead,
- * as today would say "closed" everywhere.
- */
-function infoLine(s: Spot, season: boolean): string {
-  if (!s.hours) return '';
-  if (!season) return `${dateText(s.hours.f)}–${dateText(s.hours.t)}`;
-  return s.today ? t('game.openToday', { times: timesText(s.today) }) : t('game.closedToday');
+  return { x: p[0], z: p[1], n: p[2], done: false, reach };
 }
 
 /* --- beacons --------------------------------------------------------------- */
 
 const iconCache = new Map<string, THREE.Texture>();
 
-/**
- * A marker's star, as the finder's: gold with a soft glow where the market is
- * open today, a dimmed one where it is not. Two textures, shared by every marker.
- */
-function starIcon(open: boolean): THREE.Texture {
-  const key = open ? 'open' : 'shut';
+function icon(emoji: string, colour: string): THREE.Texture {
+  const key = emoji + colour;
   let t = iconCache.get(key);
   if (t) return t;
   const c = document.createElement('canvas');
   c.width = c.height = 128;
   const g = c.getContext('2d')!;
-  if (open) {
-    const glow = g.createRadialGradient(64, 66, 4, 64, 66, 62);
-    glow.addColorStop(0, 'rgba(255,214,110,.55)');
-    glow.addColorStop(1, 'rgba(255,214,110,0)');
-    g.fillStyle = glow;
-    g.fillRect(0, 0, 128, 128);
-  }
+  g.fillStyle = colour;
   g.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const a = -Math.PI / 2 + (i * Math.PI) / 5;
-    const r = i % 2 ? 19 : 46;
-    g.lineTo(64 + Math.cos(a) * r, 68 + Math.sin(a) * r);
-  }
-  g.closePath();
-  g.lineJoin = 'round';
-  g.fillStyle = open ? GOLD : DIM;
-  g.globalAlpha = open ? 1 : 0.75;
+  g.arc(64, 58, 50, 0, Math.PI * 2);
   g.fill();
-  g.globalAlpha = 1;
-  g.lineWidth = 4;
-  g.strokeStyle = open ? 'rgba(255,240,200,.9)' : 'rgba(9,23,37,.8)';
+  // a pointer under the disc, like a map pin
+  g.beginPath();
+  g.moveTo(44, 96); g.lineTo(84, 96); g.lineTo(64, 124); g.closePath();
+  g.fill();
+  g.lineWidth = 6;
+  g.strokeStyle = 'rgba(255,255,255,.9)';
+  g.beginPath();
+  g.arc(64, 58, 50, 0, Math.PI * 2);
   g.stroke();
+  g.font = '60px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(emoji, 64, 62);
   t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   iconCache.set(key, t);
   return t;
 }
 
-const SCRATCH = new THREE.Vector3();
 const COLUMN = new THREE.CylinderGeometry(1, 1, 1, 12, 1, true).translate(0, 0.5, 0);
 
-/** A star over the target and a column of light up into the sky, with the
- *  market's name above, and under it today's times and how far it is. Stars
- *  keep their size on screen and show through buildings: they are the
- *  objective. A market closed today has a grey star; every column is gold. */
+/** A pin over the target and a column of light up into the sky, with the
+ *  market's name above and how far it is underneath. Pins keep their size on
+ *  screen and show through buildings: they are the objective. */
 class Beacon {
   readonly group = new THREE.Group();
   private readonly pin: THREE.Sprite;
@@ -225,17 +159,11 @@ class Beacon {
   private readonly dist: THREE.Sprite;
   private readonly name: THREE.Sprite;
   private readonly label: Label;
-  private readonly info: THREE.Sprite | null;
-  private readonly infoLabel: Label | null;
   private readonly pinHeight: number;
-  private readonly glow: number;
 
-  constructor(open: boolean, height: number, width: number, name: string, info: string) {
-    // the column is gold for every market; only the star tells open from closed
-    const colour = GOLD;
-    this.glow = 0.32;
+  constructor(emoji: string, colour: string, height: number, width: number, name: string) {
     this.pin = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: starIcon(open), depthTest: false, depthWrite: false,
+      map: icon(emoji, colour), depthTest: false, depthWrite: false,
       transparent: true, sizeAttenuation: false, fog: false,
     }));
     this.pin.renderOrder = 30;
@@ -250,17 +178,7 @@ class Beacon {
     }));
     this.dist.renderOrder = 30;
     this.dist.center.set(0.5, 1);
-    this.label = labelTexture(name, open ? NAME_OPEN : NAME_SHUT, 0.8);
-    this.infoLabel = info ? labelTexture(info, open ? '#f5f8fe' : NAME_SHUT, 0.7) : null;
-    this.info = this.infoLabel ? new THREE.Sprite(new THREE.SpriteMaterial({
-      map: this.infoLabel.tex, depthTest: false, depthWrite: false, transparent: true, sizeAttenuation: false,
-      fog: false,
-    })) : null;
-    if (this.info) {
-      this.info.renderOrder = 30;
-      this.info.center.set(0.5, 1);
-      this.group.add(this.info);
-    }
+    this.label = labelTexture(name, colour, 0.8);
     this.name = new THREE.Sprite(new THREE.SpriteMaterial({
       map: this.label.tex, depthTest: false, depthWrite: false, transparent: true, sizeAttenuation: false,
       fog: false,
@@ -274,17 +192,8 @@ class Beacon {
     const s = (near ? 0.075 : 0.05) * (dist < 30 ? 0.8 : 1);
     this.pin.scale.set(s, s, 1);
     this.pin.position.y = this.pinHeight + Math.sin(t * 2.4) * 0.4;
-    // under the star: today's times, and under them how far it is
-    let below = 0;
-    if (this.info && this.infoLabel) {
-      const ki = s * 0.011;
-      this.info.scale.set(this.infoLabel.w * ki, this.infoLabel.h * ki, 1);
-      this.info.position.y = this.pin.position.y;
-      below = this.infoLabel.h * ki;
-    }
+    // the plate hangs under the pin, at about the pin's own scale
     setDistance(this.dist, dist, s * 0.011);
-    // the plate's own offset, in its own heights: past the times line and a small gap
-    this.dist.center.set(0.5, 1 + (below ? (below * 1.08) / this.dist.scale.y : 0));
     this.dist.position.y = this.pin.position.y;
     // the name sits on top of the pin
     const k = s * 0.012;
@@ -292,7 +201,7 @@ class Beacon {
     this.name.center.set(0.5, -s / (this.label.h * k));
     this.name.position.y = this.pin.position.y;
     // the column fades as you arrive, so it doesn't fill the screen
-    (this.column.material as THREE.MeshBasicMaterial).opacity = Math.min(this.glow, dist / 160);
+    (this.column.material as THREE.MeshBasicMaterial).opacity = Math.min(0.32, dist / 160);
   }
 
   dispose(): void {
@@ -302,8 +211,6 @@ class Beacon {
     this.dist.material.dispose();
     this.name.material.dispose();
     this.label.tex.dispose();
-    this.info?.material.dispose();
-    this.infoLabel?.tex.dispose();
   }
 }
 
@@ -410,16 +317,12 @@ export class Game {
   private readonly pace = 0.8;
   private readonly snow = new Snow();
   /** Beacons over the nearest markets: how many, how far out, how tall and wide. */
-  private readonly beaconCount = 10;
-  private readonly beaconRange = 5000;
+  private readonly beaconCount = 14;
+  private readonly beaconRange = 9000;
   private readonly beaconHeight = 320;
   private readonly beaconWidth = 5;
 
   private beaten = false;
-  /** Is any market open today? If not, it is out of season and none is dimmed. */
-  private season = true;
-  /** The markets reached, in order, for the result. */
-  private readonly route: { id: number; name: string }[] = [];
   private countdown = 3.4;
   private lastCount = 4;
   private lastSec = 0;
@@ -459,15 +362,14 @@ export class Game {
   /** The targets: every market. */
   prepare(): void {
     this.spots = this.pool;
-    this.season = this.spots.some((s) => s.today);
-    for (const s of this.spots) s.dim = this.season && !s.today;
     this.host.hud.markets = this.spots;
   }
 
   start(): void {
     this.fov0 = this.host.camera.fov;
     el('game').classList.add('on');
-    this.render();
+    this.banner(this.best ? t('game.chase', { n: this.text('unit', { n: this.best }) }) : this.text('controls'), 4);
+    this.render(this.next());
     this.host.player.setSleigh(true);
     this.host.setNight(1);
     this.host.scene.add(this.snow.points);
@@ -499,7 +401,7 @@ export class Game {
 
   /** One line for the pause screen: time left and markets reached. */
   status(): string {
-    return t('pause.info', { time: fmt(this.limit - this.time) });
+    return t('pause.info', { time: fmt(this.limit - this.time), n: this.text('unit', { n: this.count }) });
   }
 
   /** This mode's own strings. */
@@ -519,30 +421,11 @@ export class Game {
     return best;
   }
 
-  /** The last cheer shown, so the same one never comes twice running. */
-  private lastCheer = -1;
-
-  /**
-   * A market reached: a cheer picked at random (some name the district),
-   * then the market and the district it is in, on three lines.
-   */
-  private hitBanner(s: Spot): void {
-    const cheers = this.text('cheers').split('|')
-      .filter((c) => s.district || !c.includes('{district}'));
-    let i = Math.floor(Math.random() * cheers.length);
-    if (cheers.length > 1 && i === this.lastCheer) i = (i + 1) % cheers.length;
-    this.lastCheer = i;
+  private banner(text: string, seconds = 2.2): void {
     const b = el('banner');
-    const line = (cls: string, text: string) => {
-      const d = document.createElement('div');
-      d.className = cls;
-      d.textContent = text;
-      return d;
-    };
-    b.replaceChildren(line('cheer', cheers[i].replace('{district}', s.district)), line('name', s.n));
-    if (s.district) b.append(line('where', s.district));
+    b.textContent = text;
     b.classList.add('on');
-    this.bannerTimer = 2.6;
+    this.bannerTimer = seconds;
   }
 
   /** Text that jumps up from the middle of the screen and fades. */
@@ -577,7 +460,7 @@ export class Game {
     clock.classList.remove('plus');
     void clock.offsetWidth;
     clock.classList.add('plus');
-    this.ring(x, y, z, GOLD);
+    this.ring(x, y, z, PIN_COLOUR);
     this.kick = 6;
     this.flash();
     this.checkRecord();
@@ -656,18 +539,8 @@ export class Game {
     }
     const nxt = this.next();
     const now = performance.now() / 1000;
-    const near = [...this.beacons]
-      .map(([s, b]) => [s === nxt ? -1 : Math.hypot(s.x - p.pos.x, s.z - p.pos.z), s, b] as const)
-      .sort((a, b) => a[0] - b[0]);
-    // nearest first (the next target before all): a marker that would land on
-    // a nearer one on screen is left out, so names don't pile up
-    const taken: [number, number][] = [];
-    for (const [, s, b] of near) {
+    for (const [s, b] of this.beacons) {
       b.update(now, s === nxt, Math.hypot(s.x - p.pos.x, s.z - p.pos.z));
-      const at = SCRATCH.copy(b.group.position).project(this.host.camera);
-      const sx = at.x * innerWidth / 2, sy = at.y * innerHeight / 2;
-      b.group.visible = at.z > 1 || !taken.some(([x, y]) => Math.abs(x - sx) < 150 && Math.abs(y - sy) < 50);
-      if (b.group.visible && at.z <= 1) taken.push([sx, sy]);
     }
     this.updateParticles(dt);
     this.updateView(dt);
@@ -675,7 +548,7 @@ export class Game {
       this.bannerTimer -= dt;
       if (this.bannerTimer <= 0) el('banner').classList.remove('on');
     }
-    this.render();
+    this.render(nxt);
   }
 
   /** The camera kick on a hit and the widening rush of speed. */
@@ -701,27 +574,26 @@ export class Game {
     return p.pos.y - this.host.world.height(p.pos.x, p.pos.z) < this.beaconHeight;
   }
 
-  /** The boost is the rush: none at cruising speed, full at the top speed. */
+  /** The boost is the rush: full while flying flat out, gone while braking. */
   private rush(): number {
     const p = this.host.player;
-    return Math.max(0, Math.min(1, (p.sleighSpeed / p.speedScale - 70) / 40));
+    return Math.max(0, Math.min(1, (p.sleighSpeed / p.speedScale - 65) / 45));
   }
 
   private reached(s: Spot): void {
     s.done = true;
-    this.route.push({ id: s.id, name: s.n });
     sfx.jingle();
     const p = this.host.player;
     this.award(p.pos.x, p.pos.y, p.pos.z);
     this.burst(p.pos.x, p.pos.y, p.pos.z, [0xc8102e, 0x2f8f4e, 0x2a62c9, 0xe8b23a], 10, 0.7);
-    this.hitBanner(s);
+    this.banner(this.text('hit', { name: s.n }));
   }
 
   private end(): void {
     if (this.state === 'over') return;
     this.state = 'over';
     this.result = { won: this.count > 0, title: this.text(this.count >= 8 ? 'won' : 'lost'),
-                    count: this.count, route: [...this.route] };
+                    count: this.count, of: this.spots.length };
     if (this.result.won) sfx.win(); else sfx.lose();
   }
 
@@ -744,13 +616,13 @@ export class Game {
     for (const [, s] of near) {
       let b = this.beacons.get(s);
       if (!b) {
-        b = new Beacon(!s.dim, this.beaconHeight, this.beaconWidth, s.n, infoLine(s, this.season));
+        b = new Beacon(PIN, PIN_COLOUR, this.beaconHeight, this.beaconWidth, s.n);
         this.beacons.set(s, b);
         this.group.add(b.group);
       }
       b.group.position.set(s.x, w.height(s.x, s.z), s.z);
     }
-    this.host.hud.marks = near.map(([, s]) => ({ x: s.x, z: s.z, colour: s.dim ? DIM : GOLD }));
+    this.host.hud.marks = near.map(([, s]) => ({ x: s.x, z: s.z, colour: PIN_COLOUR }));
   }
 
   private updateParticles(dt: number): void {
@@ -783,13 +655,23 @@ export class Game {
     }
   }
 
-  private render(): void {
+  /** What is still to aim for: the best run so far. */
+  private goalLine(): string {
+    if (!this.best) return '';
+    return this.beaten ? t('game.beaten') : t('game.best', { n: this.text('unit', { n: this.best }) });
+  }
+
+  private render(nxt: Spot | null): void {
+    const p = this.host.player;
     const left = this.limit - this.time;
     const clock = el('gTime');
     put(clock, fmt(left));
     clock.classList.toggle('low', left < 30 && this.state === 'play');
     put(el('gPoints'), String(this.count));
-    put(el('gScore'), this.text('score'));
+    put(el('gScore'), this.text('score', { n: this.count, of: this.spots.length }));
+    put(el('gGoal'), this.goalLine());
+    put(el('gTarget'), nxt ? `${nxt.n} · ${distanceText(Math.hypot(nxt.x - p.pos.x, nxt.z - p.pos.z))}`
+      : t(this.spots.length ? 'game.none' : 'game.noTargets'));
   }
 }
 

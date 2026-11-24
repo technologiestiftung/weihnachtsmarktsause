@@ -28,8 +28,7 @@ export class HUD {
   /** A game's nearest targets, drawn on the minimap as rings. */
   marks: { x: number; z: number; colour: string }[] = [];
   /** Every market of the game, drawn as dots until reached. */
-  /** dim: closed today (games.ts), drawn fainter, as the 3D markers are. */
-  markets: readonly { x: number; z: number; done: boolean; dim?: boolean }[] = [];
+  markets: readonly { x: number; z: number; done: boolean }[] = [];
   private readonly area = 'Berlin';
   private readonly canvas = el<HTMLCanvasElement>('map');
   private readonly ctx = this.canvas.getContext('2d')!;
@@ -128,7 +127,7 @@ export class HUD {
     const sz = (z: number) => size / 2 + (z - cz) * scale;
 
     ctx.save();
-    ctx.fillStyle = '#091725';
+    ctx.fillStyle = '#15181e';
     ctx.fillRect(0, 0, size, size);
 
     // districts: a faint fill, the one you are over a little brighter
@@ -138,29 +137,23 @@ export class HUD {
     ctx.lineWidth = 1.1 / scale;
     ctx.lineJoin = 'round';
     for (const d of ov.districts) {
-      ctx.fillStyle = d === here ? 'rgba(189,163,59,.12)' : 'rgba(255,255,255,.05)';
+      ctx.fillStyle = d === here ? 'rgba(63,191,111,.09)' : 'rgba(255,255,255,.05)';
       ctx.fill(d.path);
     }
     ctx.strokeStyle = 'rgba(232,230,225,.42)';
     for (const d of ov.districts) ctx.stroke(d.path);
     ctx.restore();
 
-    // every market still to reach, as a small gold star like the finder's
-    // markers; the 3D sights and stations (sights.ts) are left off, too
-    // small to read at this size
-    // markets closed today in grey, as their 3D markers are
-    const r = all ? 3 : 4.2;
+    // every market still to reach, as a small dot; the 3D sights and
+    // stations (sights.ts) are left off, too small to read at this size
+    const r = all ? 1.6 : 2.4;
+    ctx.fillStyle = '#e8b23a';
     for (const m of this.markets) {
       if (m.done) continue;
-      ctx.fillStyle = m.dim ? 'rgba(125,140,160,.75)' : '#bda33b';
       const x = sx(m.x), y = sz(m.z);
-      if (x < -6 || y < -6 || x > size + 6 || y > size + 6) continue;
+      if (x < -4 || y < -4 || x > size + 4 || y > size + 4) continue;
       ctx.beginPath();
-      for (let i = 0; i < 10; i++) {
-        const a = -Math.PI / 2 + i * Math.PI / 5, k = i % 2 ? r * 0.45 : r;
-        ctx.lineTo(x + Math.cos(a) * k, y + Math.sin(a) * k);
-      }
-      ctx.closePath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -182,8 +175,8 @@ export class HUD {
     ctx.translate(sx(px), sz(pz));
     // the camera looks along (-sin yaw, -cos yaw); north (-z) is up on the map
     ctx.rotate(-player.yaw);
-    ctx.fillStyle = '#f5f8fe';
-    ctx.strokeStyle = '#091725';
+    ctx.fillStyle = '#3fbf6f';
+    ctx.strokeStyle = '#14161c';
     ctx.lineWidth = 1.3;
     ctx.beginPath();
     ctx.moveTo(0, -8);

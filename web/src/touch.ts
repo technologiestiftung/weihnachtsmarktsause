@@ -17,13 +17,11 @@ export function isTouchDevice(): boolean {
 
 /** Joystick deflection past which a direction counts as held. */
 const DEAD = 0.3;
-const KNOB = 'rgba(189,163,59,.85)';
+const KNOB = 'rgba(63,191,111,.85)';
 /** Radians per pixel of drag; a thumb travels less than a mouse. */
 const LOOK = 2.4;
 
 interface TouchButton {
-  /** An inline SVG icon; label names it for screen readers. */
-  icon: string;
   label: string;
   code: string;
 }
@@ -41,8 +39,7 @@ export class TouchControls {
     const bar = document.getElementById('touchButtons')!;
     for (const b of buttons) {
       const el = document.createElement('button');
-      el.innerHTML = b.icon;
-      el.setAttribute('aria-label', b.label);
+      el.textContent = b.label;
       el.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         const code = b.code;

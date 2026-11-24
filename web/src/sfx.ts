@@ -10,9 +10,6 @@
 
 export interface AudioSettings {
   on: boolean;
-  /** The music alone, from the round button; its volume stays as set. Off on every
-   *  page load - a browser plays nothing before a click anyway - and not kept. */
-  musicOn: boolean;
   /** 0 to 1. */
   master: number;
   music: number;
@@ -22,7 +19,7 @@ export interface AudioSettings {
 const KEY = 'berlin.audio';
 
 function load(): AudioSettings {
-  const s: AudioSettings = { on: true, musicOn: false, master: 0.8, music: 0.5, sfx: 0.8 };
+  const s: AudioSettings = { on: true, master: 0.8, music: 0.5, sfx: 0.8 };
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<AudioSettings>;
     if (typeof v.on === 'boolean') s.on = v.on;
@@ -41,24 +38,12 @@ let master: GainNode | null = null;
 let musicBus: GainNode | null = null;
 let sfxBus: GainNode | null = null;
 
-const audioListeners: (() => void)[] = [];
-
-/** Called after every change of the settings, wherever it was made. */
-export function onAudio(f: () => void): void {
-  audioListeners.push(f);
-}
-
-/** Whether music is playing as far as the settings go: sound on, music on and turned up. */
-export const musicAudible = (): boolean =>
-  audioSettings.on && audioSettings.musicOn && audioSettings.music > 0;
-
 /** Change and keep the settings; the sound follows at once. */
 export function setAudio(change: Partial<AudioSettings>): void {
   Object.assign(audioSettings, change);
   try { localStorage.setItem(KEY, JSON.stringify(audioSettings)); } catch { /* storage blocked */ }
   applyGains();
-  if (musicAudible()) music.start();
-  for (const f of audioListeners) f();
+  if (audioSettings.on && audioSettings.music > 0) music.start();
 }
 
 function applyGains(): void {
@@ -66,7 +51,7 @@ function applyGains(): void {
   const s = audioSettings, t = ctx.currentTime;
   // a short glide, so dragging a slider does not click
   master.gain.setTargetAtTime(s.on ? s.master * 0.5 : 0, t, 0.03);
-  musicBus.gain.setTargetAtTime(s.musicOn ? s.music : 0, t, 0.03);
+  musicBus.gain.setTargetAtTime(s.music, t, 0.03);
   sfxBus.gain.setTargetAtTime(s.sfx, t, 0.03);
 }
 
@@ -212,7 +197,7 @@ export const music = {
     if (!ctx || !musicBus || ctx.state !== 'running') return;
     // back from a suspended tab: pick up from now, not with a burst
     if (this.next < ctx.currentTime) this.next = ctx.currentTime + 0.05;
-    if (!musicAudible()) return;
+    if (!audioSettings.on || audioSettings.music === 0) return;
     while (this.next < ctx.currentTime + 1) {
       const [n, len] = MELODY[this.note];
       const t = this.next;

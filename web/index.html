@@ -4,19 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>Weihnachtsmarkt-Sause</title>
-<link rel="icon" type="image/svg+xml" href="/star.svg">
-<meta name="theme-color" content="#091725">
 <style>
-  :root { --navy: #091725; --light: #f5f8fe; --gold: #bda33b; --gold-dark: #a79034;
-    --lightgray: #9fb1c6;
-    --ui: rgba(245,248,254,.92); --dim: var(--lightgray); --accent: var(--gold); --on-accent: var(--navy); }
+  :root { --ui: #e8e6e1; --dim: #9a978f; --accent: #3fbf6f; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--navy);
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0f1116;
     font-family: "Clan", sans-serif; color: var(--ui); }
   canvas { display: block; width: 100%; height: 100%; }
-  /* the panels (game, map, sources) over the speed lines and the flash (z-index 4) */
-  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
-  .panel { position: absolute; background: rgba(9,23,37,.78); border: 1px solid rgba(245,248,254,.10);
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  .panel { position: absolute; background: rgba(14,16,21,.72); border: 1px solid rgba(255,255,255,.10);
     border-radius: 8px; padding: 9px 11px; font-size: 11px; line-height: 1.5;
     backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); }
   #stats { top: 12px; left: 12px; min-width: 172px; }
@@ -30,174 +25,118 @@
   #maplabel { font-size: 9.5px; color: var(--dim); text-align: center; margin-top: 5px;
     letter-spacing: .05em; width: 190px; }
   #maplabel b { display: block; color: var(--ui); font-size: 11px; font-weight: 600; letter-spacing: .06em; }
-  #maplabel small { display: block; font-size: 9.5px; color: rgba(245,248,254,.8); white-space: nowrap; overflow: hidden;
+  #maplabel small { display: block; font-size: 9.5px; color: #c9c6bf; white-space: nowrap; overflow: hidden;
     text-overflow: ellipsis; }
-  #maplabel span { display: block; margin-top: 3px; font-size: 9.5px; }
-  /* the zoom key, as a key cap like those in the keys panel */
-  #maplabel kbd { display: inline-block; min-width: 16px; padding: 0 4px; border-radius: 4px; font: inherit;
-    font-weight: 700; line-height: 14px; border: 1px solid rgba(255,255,255,.25); border-bottom-width: 2px;
-    background: rgba(255,255,255,.1); color: #fff; text-align: center; }
+  #maplabel span { display: block; margin-top: 2px; font-size: 8.5px; }
   #credits { bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 9.5px;
     color: var(--dim); text-align: center; max-width: 60ch; }
   #credits a { color: var(--dim); }
-  /* on a desktop the sources sit in the bottom right corner, the keys in the bottom left */
-  @media (min-width: 900px) {
-    body:not(.touch) #credits { left: auto; right: 12px; transform: none; text-align: right; max-width: 52ch; }
-  }
   #boot { position: fixed; inset: 0; display: flex; justify-content: center; z-index: 20;
     overflow-x: hidden; overflow-y: auto;
-    background: linear-gradient(#02060b, #040b14 45%, #06101c); }
-  /* the finder's intro modal: night blue, a half-gold frame, gold for what you can press.
-     The sky round it a shade darker, as the finder's map is under its dimmed overlay.
-     The strip at the top is left free for Santa (loadingart.ts flies him along the top
-     of the window); the two flex spacers keep the box centred in what is left */
-  #boot .inner { position: relative; width: min(900px, 100%); padding: 92px 16px 24px;
+    background: linear-gradient(#020309, #070b16 45%, #0c1222 75%); --art: 220px; }
+  @media (max-height: 760px) { #boot { --art: 160px; } }
+  @media (max-height: 560px) { #boot { --art: 100px; } }
+  /* night above, the text on the snowfield the tree stands in below; the two
+     spacers share what height is left, so the whole stays centred */
+  #boot .inner { position: relative; text-align: center; width: 100%; max-width: 880px; padding: 24px 16px 0;
     display: flex; flex-direction: column; min-height: 100%; }
-  #boot .inner::before, #boot .inner::after { content: ''; flex: 1 0 0; }
-  /* imprint and privacy, as on the finder: small and quiet, bottom right. On a phone under
-     the box (order puts it after the bottom spacer), on a desktop in the window's corner */
-  #legal { order: 1; display: flex; justify-content: flex-end; gap: 14px; margin-top: 16px;
-    font-size: 11px; line-height: 1.4; }
-  #legal a { color: var(--dim); text-decoration: none; opacity: .75; pointer-events: auto; }
-  #legal a:hover, #legal a:focus-visible { color: var(--light); opacity: 1; text-decoration: underline; }
-  @media (min-width: 900px) { #legal { position: fixed; right: 20px; bottom: max(20px, env(safe-area-inset-bottom)); margin: 0; } }
-  /* music and language, as the finder's round buttons: top right, over the menu, the
-     loading screen, the game and the pause screen (under the boxes over them). Music:
-     gold with a night-blue icon while it plays, the other way round when silent.
-     Language: always gold, naming the language shown */
-  #corner { position: fixed; top: 12px; right: 12px; z-index: 25; display: flex; gap: 8px; }
-  #corner button { width: 40px; height: 40px; padding: 0; display: grid; place-items: center;
-    border-radius: 50%; border: 0; cursor: pointer; font: inherit; font-size: 14px; line-height: 1;
-    transition: background .15s, color .15s; }
-  #corner button:focus-visible { outline: 2px solid var(--light); outline-offset: 2px; }
-  #musicBtn { background: var(--navy); color: var(--gold); }
-  #musicBtn svg { width: 24px; height: 24px; margin-right: 4px; }
-  #musicBtn.on, #musicBtn:hover { background: var(--gold); color: var(--navy); }
-  #langBtn { background: var(--gold); color: var(--navy); }
-  #langBtn:hover { background: var(--gold-dark); }
-  /* in a game the map moves down under them */
-  body.gaming #mapwrap { top: 60px; }
-  /* on a phone in a game they go to the bottom left instead, over the credits line,
-     and the map stays at the top */
-  body.gaming.touch #corner { top: auto; right: auto; left: max(12px, env(safe-area-inset-left));
-    bottom: calc(max(4px, env(safe-area-inset-bottom)) + 26px); }
-  body.gaming.touch #mapwrap { top: 12px; }
-  /* the snow (loadingart.ts), falling behind the box */
+  #boot .inner::before { content: ''; flex: 1 0 0; }
+  /* the tree (loadingart.ts) stands over this spacer, above the title */
+  #bootArt { height: var(--art); flex: none; }
+  /* the snowfield (public/art/near.svg): from the tree's foot, 0.88 of the way down the spacer, to the
+     bottom of the screen, and the full width of it; over the falling snow, which so lands on it. At the
+     foot the tree's shadow and the warm spill of its lights */
+  #ground { --ui: #1d2330; --dim: #5f6675; --accent: #1b7a43; --accent-ink: #1b7a43; color: var(--ui); flex: 1 0 auto;
+    position: relative; display: flex; flex-direction: column;
+    margin: calc(var(--art) * -0.12) calc(50% - 50vw) 0; padding: calc(var(--art) * 0.12 + 14px) calc(50vw - 50%) 24px;
+    background:
+      radial-gradient(calc(var(--art) * 0.3) calc(var(--art) * 0.04) at 50% 0,
+        rgba(52,66,100,.5), rgba(52,66,100,0)),
+      radial-gradient(calc(var(--art) * 0.7) calc(var(--art) * 0.16) at 50% 0,
+        rgba(255,190,120,.3), rgba(255,190,120,0)),
+      url(art/near.svg) 0 0 / 100% calc(var(--art) * 0.45) no-repeat,
+      linear-gradient(transparent calc(var(--art) * 0.45 - 1px), #eef2f8 calc(var(--art) * 0.45 - 1px), #f7f9fc); }
+  #ground::after { content: ''; flex: 1 0 0; }
+  /* behind the tree and the falling snow (public/art/), in the 0.75 art above
+     the foot: a snowy rise on the horizon */
+  #ground::before { content: ''; position: absolute; z-index: -1; left: 0; right: 0; top: calc(var(--art) * -0.75);
+    height: calc(var(--art) * 0.8);
+    background:
+      url(art/mid.svg) 0 calc(var(--art) * 0.6) / 100% calc(var(--art) * 0.6) no-repeat; }
+  /* the snow (loadingart.ts), behind whichever screen is up */
   #snow { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-  /* the box, as the finder's modal (border-2 border-gold/50 bg-darkblue rounded-lg p-6) */
-  #card { position: relative; width: 100%; max-width: 560px; margin: 0 auto; padding: 24px; text-align: center;
-    background: var(--navy); border: 2px solid rgba(189,163,59,.5); border-radius: 8px;
-    color: rgba(245,248,254,.9); font-size: 16px; line-height: 28px;
-    box-shadow: 0 10px 8px rgba(0,0,0,.04), 0 4px 3px rgba(0,0,0,.1); }
-  #loading { max-width: 420px; margin: 0 auto; line-height: 1.5; }
+  #loading { max-width: 420px; margin: 0 auto; }
   #boot.ready #loading { display: none; }
-  #menuText, #menu, #menuFoot { display: none; }
-  #boot.ready #menuText, #boot.ready #menu, #boot.ready #menuFoot { display: block; }
-  /* the start menu, in the finder's buttons: the game gold, the rest framed light and gold on hover */
-  #mainBtns { display: flex; flex-direction: column; gap: 10px; width: min(300px, 100%); margin: 0 auto; }
-  #mainBtns button, #mainBtns a { pointer-events: auto; background: var(--navy); color: var(--light);
-    border: 2px solid rgba(245,248,254,.9); border-radius: 4px; padding: 10px 16px; font: inherit;
-    font-size: 16px; line-height: 24px; cursor: pointer; text-decoration: none; text-align: center;
-    transition: border-color .15s, color .15s, background .15s; }
-  #mainBtns button:hover, #mainBtns button:focus-visible, #mainBtns a:hover, #mainBtns a:focus-visible {
-    background: var(--gold); border-color: var(--gold); outline: none; }
-  #mainBtns #playBtn { background: var(--gold); border-color: var(--gold); color: var(--navy); font-weight: 700;
-    padding: 12px 16px; }
-  #mainBtns #playBtn:hover, #mainBtns #playBtn:focus-visible { background: var(--gold-dark); border-color: var(--gold-dark); }
-  /* the finder opens another site in a new tab: a link, not a button, with the
-     usual arrow out of a box after it */
-  #mainBtns #finderBtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    align-self: center; margin-top: 4px; padding: 4px 2px; background: none; border: 0; border-radius: 2px;
-    color: var(--gold); text-decoration: underline; text-underline-offset: 3px; }
-  #mainBtns #finderBtn::after { content: ''; flex: none; width: 15px; height: 15px; background: currentColor;
-    -webkit-mask: var(--ext) center / contain no-repeat; mask: var(--ext) center / contain no-repeat;
-    --ext: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'/%3E%3C/svg%3E"); }
-  #mainBtns #finderBtn:hover, #mainBtns #finderBtn:focus-visible { background: none; color: var(--light); }
-  #mainBtns #finderBtn:focus-visible { outline: 2px solid var(--light); outline-offset: 2px; }
-  /* who made it, and the data credits: small print, as under the finder's modal */
-  #menuFoot { margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(245,248,254,.14);
-    font-size: 12px; line-height: 1.6; color: var(--dim); }
-  /* who made it, last: under the sources and the contact, past a rule of its own */
-  #logos { display: flex; flex-direction: column; align-items: center; gap: 10px;
-    margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(245,248,254,.14); }
-  #logos > a { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--dim);
-    font-size: 12px; text-decoration: none; pointer-events: auto; }
-  /* the logo's blue would vanish on the navy: shown in white, as on the finder's preview */
-  #logos img { display: block; height: 38px; width: auto; filter: brightness(0) invert(1); opacity: .92; }
-  #logosNote { max-width: 60ch; }
-  #logosNote a { color: inherit; pointer-events: auto; }
-  #menuCredits, #menuContact { margin: 0 auto; max-width: 72ch; }
-  #menuContact { margin-top: 14px; }
-  #menuCredits a, #menuContact a, #introData a { color: inherit; pointer-events: auto; }
+  #menu { display: none; margin-top: 8px; }
+  #boot.ready #menu { display: block; }
+  /* the start menu: three buttons, the first one the game, and a link out to the finder */
+  #mainBtns { display: flex; flex-direction: column; gap: 10px; width: min(280px, 100%); margin: 0 auto; }
+  #mainBtns button, #mainBtns a { pointer-events: auto; background: rgba(29,35,48,.04); color: var(--ui);
+    border: 1px solid rgba(29,35,48,.22); border-radius: 8px; padding: 12px 18px; font: inherit;
+    font-size: 15px; cursor: pointer;
+    transition: border-color .15s, transform .15s, background .15s; }
+  #mainBtns button:hover, #mainBtns button:focus-visible, #mainBtns a:hover, #mainBtns a:focus-visible { border-color: var(--accent); transform: translateY(-1px);
+    outline: none; }
+  #mainBtns #playBtn { background: var(--accent); border-color: var(--accent); color: #14161c; font-weight: 700;
+    font-size: 17px; letter-spacing: .12em; text-transform: uppercase; padding: 15px 18px; }
+  #mainBtns #finderBtn { display: block; text-decoration: none; }
+  #mainBtns #playBtn:hover, #mainBtns #playBtn:focus-visible { background: #22914f; }
+  /* who made it, and the data credits */
+  #logos { display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; gap: 14px 32px;
+    margin: 32px auto 0; }
+  #logos a { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--dim);
+    font-size: 9.5px; text-decoration: none; pointer-events: auto; }
+  /* the labels on one line, each logo centred in the space under its label */
+  #logos img { display: block; height: 36px; width: auto; margin: auto 0; }
+  #logos a:first-child img { height: 30px; }
+  #logos a:last-child img { height: 44px; }
+  #menuCredits, #menuContact { font-size: 9px; color: var(--dim); margin: 10px auto 0; max-width: 60ch; line-height: 1.5; }
+  #menuContact { margin-top: 6px; }
+  #boot h2 a, #menuCredits a, #menuContact a { color: inherit; pointer-events: auto; }
   #result { display: none; margin: 0 auto 18px; max-width: 520px; }
-  /* what the game is about, and what it is built on; a result takes their place */
-  #intro { max-width: 46ch; margin: 0 auto 22px; }
-  #result.on ~ #intro { display: none; }
-  /* what the game is built on: first in the foot, over the sources it names */
-  #introData { margin: 0 0 6px; font-size: 13px; color: rgba(245,248,254,.85); }
-  #introData a { color: var(--gold); }
-  /* a small gold heart after the sentence: an icon, not an emoji */
-  #introData::after { content: ''; display: inline-block; width: 12px; height: 12px; margin-left: 6px;
-    vertical-align: -1px; background: var(--gold);
-    -webkit-mask: var(--heart) center / contain no-repeat; mask: var(--heart) center / contain no-repeat;
-    --heart: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 14.5S1.5 10.4 1.5 5.9C1.5 3.7 3.2 2 5.3 2c1.2 0 2.2.6 2.7 1.5C8.5 2.6 9.5 2 10.7 2c2.1 0 3.8 1.7 3.8 3.9 0 4.5-6.5 8.6-6.5 8.6z'/%3E%3C/svg%3E"); }
-  /* wide windows: the box goes wide instead of tall, so it all fits without scrolling -
-     title and text on the left, the buttons on the right, credits across the foot */
-  @media (min-width: 900px) {
-    #boot.ready #card { max-width: none; padding: 32px 36px 24px; text-align: left; }
-    #boot.ready #cardMain { display: grid; grid-template-columns: 1fr 280px; gap: 44px; align-items: center; }
-    #boot.ready #intro, #boot.ready #result { margin-left: 0; margin-right: 0; }
-    #boot.ready #intro { margin-bottom: 0; }
-    #boot.ready #result .rb { justify-content: flex-start; }
-    #boot.ready #result form.join { margin-left: 0; }
-    #boot.ready #mainBtns { width: 100%; }
-    #logos { flex-direction: row; align-items: center; gap: 28px; }
-    #logos > a { flex: none; align-items: flex-start; }
-    #menuCredits, #menuContact { margin-left: 0; max-width: none; }
-  }
+  /* what the game is about; a result takes its place */
+  #intro { max-width: 46ch; margin: 0 auto 20px; font-size: 13.5px; line-height: 1.55; color: #3d4452; }
+  #result.on + #intro { display: none; }
   #result.on { display: block; }
-  /* as the box's title: 24px; the count under it gold but no bigger than that */
-  #result h3 { font-size: 24px; line-height: 32px; margin: 0 0 4px; font-weight: 700; color: rgba(245,248,254,.8); }
-  #result .big { font-size: 24px; color: var(--gold); font-weight: 700; line-height: 32px; }
-  #result p { font-size: 11.5px; color: rgba(245,248,254,.8); margin: 4px 0; }
-  #result p.rank { color: var(--gold); font-weight: 600; }
+  #result h3 { font-size: 22px; margin: 0 0 6px; letter-spacing: .06em; font-weight: 600; }
+  #result .big { font-size: 46px; color: var(--accent-ink); font-weight: 600; line-height: 1.1; }
+  #result p { font-size: 11.5px; color: #3d4452; margin: 4px 0; }
+  #result p.rank { color: var(--accent-ink); font-weight: 600; }
   #result form.join { margin: 10px auto 0; max-width: 340px; }
-  #result p.short { color: var(--gold); font-weight: 600; }
+  #result p.short { color: #9a6b00; font-weight: 600; }
   #result p.src { font-size: 9.5px; color: var(--dim); }
-  /* the markets reached, each a link to it in the finder; a long run scrolls */
-  #result .route { margin: 14px 0 0; text-align: left; }
-  #result .route .sub { font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; margin: 0 0 4px; }
-  #result .route ol { margin: 0; padding: 0 0 0 1.6em; max-height: 132px; overflow-y: auto; font-size: 14px; line-height: 22px; }
-  #result .route li::marker { color: var(--dim); font-size: 12px; }
-  #result .route a { color: var(--gold); pointer-events: auto; }
-  #result .route a:hover, #result .route a:focus-visible { color: var(--light); }
-  #result .route .hint { font-size: 12px; color: var(--dim); margin: 6px 0 0; }
   #result .rb { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
-  .rb button { pointer-events: auto; background: var(--accent); color: var(--on-accent); border: 0; border-radius: 6px;
+  .rb button { pointer-events: auto; background: var(--accent); color: #14161c; border: 0; border-radius: 6px;
     padding: 9px 18px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; letter-spacing: .06em; }
-  .rb button.alt { background: transparent; color: var(--ui); box-shadow: inset 0 0 0 1px rgba(189,163,59,.6); }
-  .rb button:hover, .rb button:focus-visible { background: var(--gold-dark); color: var(--navy); outline: none; }
-  .rb button.alt:hover, .rb button.alt:focus-visible { background: var(--gold); box-shadow: none; }
+  .rb button.alt { background: rgba(255,255,255,.1); color: var(--ui); }
+  /* on the snow the accent is a deeper green, and the buttons on it white on green */
+  #ground #playBtn, #ground .rb button:not(.alt), #ground form .row button { color: #fff; }
+  #ground .rb button.alt { background: rgba(29,35,48,.08); }
+  #ground form .row input { background: #fff; border-color: rgba(29,35,48,.22); color: var(--ui); }
   /* the high scores and the settings: a box over the menu (or the pause screen), with tabs */
   .modal { position: fixed; inset: 0; z-index: 30; display: none; place-items: center; pointer-events: auto;
-    background: rgba(3,8,14,.72); padding: 16px; }
+    background: rgba(8,10,14,.72); padding: 16px; }
   .modal.on { display: grid; }
   .modal .box { position: relative; width: min(520px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto;
-    background: var(--navy); border: 1px solid rgba(245,248,254,.14); border-radius: 12px; padding: 18px 18px 12px; }
+    background: #151820; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 18px 18px 12px; }
   .modal h3 { margin: 0 0 12px; font-size: 18px; letter-spacing: .08em; font-weight: 600; text-align: center; }
   .modal .x { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%;
     background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); color: var(--ui);
     font: inherit; font-size: 13px; cursor: pointer; }
-  .modal .x:hover, .modal .x:focus-visible { background: var(--gold); border-color: var(--gold); color: var(--navy); outline: none; }
-  .modal p { font-size: 11.5px; color: rgba(245,248,254,.8); margin: 4px 0; }
+  .modal .x:hover, .modal .x:focus-visible { border-color: var(--accent); outline: none; }
+  .modal p { font-size: 11.5px; color: #c9c6bf; margin: 4px 0; }
   .modal p.dim, .modal p.src { color: var(--dim); }
   .modal p.src { font-size: 9.5px; margin-top: 12px; }
   .modal p.sub { color: var(--dim); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; margin: 14px 0 4px; }
+  #board form.name label { display: block; font-size: 10px; color: var(--dim); letter-spacing: .1em;
+    text-transform: uppercase; margin-bottom: 4px; }
+  .modal p.msg { min-height: 1.3em; font-size: 10.5px; color: var(--accent); }
+  .modal p.msg.bad { color: #ff8a7a; }
   form .row { display: flex; gap: 6px; }
   form .row input { flex: 1; min-width: 0; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.16);
     border-radius: 6px; color: var(--ui); font: inherit; font-size: 13px; padding: 7px 9px; }
   form .row input:focus { outline: none; border-color: var(--accent); }
-  form .row button { background: var(--accent); color: var(--on-accent); border: 0; border-radius: 6px; font: inherit;
+  form .row button { background: var(--accent); color: #14161c; border: 0; border-radius: 6px; font: inherit;
     font-size: 12px; font-weight: 600; padding: 7px 14px; cursor: pointer; letter-spacing: .04em; }
   form .row button:disabled { opacity: .5; }
   /* iOS zooms into a field with text under 16px */
@@ -220,31 +159,44 @@
   #board table.scores td.pts { color: var(--dim); font-size: 10.5px; }
   #board table.scores tr.me td { color: var(--accent); font-weight: 600; }
   #board table.scores tr.gap td { color: var(--dim); border-top: 0; padding: 0 6px; }
+  #board .recent { font-size: 11px; color: #c9c6bf; line-height: 1.7; }
   /* settings: a label, then its control */
   #settings .tabbody { min-height: 0; padding-top: 10px; }
-  #settings .tabbody > p { font-size: 14px; line-height: 1.6; margin: 0 0 14px; }
+  #settings .set { display: grid; grid-template-columns: 9em 1fr 3.5em; gap: 10px; align-items: center;
+    padding: 9px 2px; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,.06); cursor: default; }
+  #settings .set.off { opacity: .45; }
+  #settings .lbl { color: #c9c6bf; }
+  #settings .val { text-align: right; color: var(--dim); font-variant-numeric: tabular-nums; font-size: 11px; }
+  #settings .seg { grid-column: 2 / -1; justify-self: start; display: flex; gap: 4px; }
+  #settings .seg button { background: rgba(255,255,255,.06); color: var(--dim); border: 1px solid rgba(255,255,255,.14);
+    border-radius: 5px; font: inherit; font-size: 11px; padding: 5px 12px; cursor: pointer; letter-spacing: .08em; }
+  #settings .seg button.on { color: #14161c; background: var(--accent); border-color: var(--accent); }
+  #settings .seg button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+  #settings input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+  #settings input[type=range]:disabled { cursor: default; }
+  #settings input.switch { grid-column: 2; justify-self: start; appearance: none; -webkit-appearance: none;
+    width: 38px; height: 21px; margin: 0; border-radius: 99px; position: relative; cursor: pointer;
+    background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.18); transition: background .15s; }
+  #settings input.switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px;
+    border-radius: 50%; background: var(--ui); transition: transform .15s; }
+  #settings input.switch:checked { background: var(--accent); border-color: var(--accent); }
+  #settings input.switch:checked::after { transform: translateX(17px); background: #14161c; }
+  #settings input.switch:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+  #settings .tabbody > p { font-size: 11.5px; line-height: 1.55; }
+  #settings .tabbody > p.dim { font-size: 10.5px; margin-top: 12px; }
   /* the controls, as on the loading screen before */
-  .keys { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; align-items: center;
-    margin: 10px 0 4px; padding: 12px 14px; text-align: left; font-size: 12px; color: rgba(245,248,254,.88);
+  #settings .keys { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; align-items: center;
+    margin: 10px 0 4px; padding: 12px 14px; text-align: left; font-size: 12px; color: #dedbd4;
     background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; }
-  .keys .k { justify-self: end; white-space: nowrap; }
-  .keys kbd { display: inline-block; min-width: 24px; margin-left: 4px; padding: 3px 7px;
+  #settings .keys .k { justify-self: end; white-space: nowrap; }
+  #settings .keys kbd { display: inline-block; min-width: 24px; margin-left: 4px; padding: 3px 7px;
     border-radius: 6px; border: 1px solid rgba(255,255,255,.2); border-bottom-width: 3px;
     background: rgba(255,255,255,.1); color: #fff; font: 600 11px system-ui, sans-serif; text-align: center; }
-  .keys svg.mouse { width: 17px; height: 25px; margin-left: 4px; vertical-align: middle; color: #fff; }
-  .keys .pairs { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; }
-  .keys .pairs kbd, .keys .pairs svg.mouse { margin: 0 6px 0 0; }
-  .keys .tip { grid-column: 1 / -1; margin-top: 4px; color: var(--accent); }
-  #settings kbd, #keysPanel kbd { font-family: inherit; }
-  /* the keys, always in view during a game, bottom left: on a desktop only - a phone has its
-     thumbs and no room - and only where the window is big enough for it */
-  #keysPanel { left: 12px; bottom: 12px; display: none; padding: 0; }
-  body.gaming:not(.touch) #keysPanel { display: block; }
-  @media (max-width: 900px), (max-height: 560px) { #keysPanel { display: none !important; } }
-  #keysPanel .keys { margin: 0; padding: 9px 11px; gap: 5px 10px; font-size: 11px; line-height: 1.3;
-    background: none; border: 0; border-radius: 0; }
-  #keysPanel .keys kbd { min-width: 20px; padding: 2px 5px; font-size: 10px; border-radius: 5px; }
-  #keysPanel .keys svg.mouse { width: 13px; height: 19px; }
+  #settings .keys svg.mouse { width: 17px; height: 25px; margin-left: 4px; vertical-align: middle; color: #fff; }
+  #settings .keys .pairs { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; }
+  #settings .keys .pairs kbd, #settings .keys .pairs svg.mouse { margin: 0 6px 0 0; }
+  #settings .keys .tip { grid-column: 1 / -1; margin-top: 4px; color: var(--accent); }
+  #settings kbd { font-family: inherit; }
   #game { top: 62px; left: 50%; transform: translateX(-50%); min-width: 260px; max-width: calc(100vw - 32px);
     text-align: center; display: none; font-size: 12px; }
   #game.on { display: block; }
@@ -253,10 +205,12 @@
   @keyframes pulse { 50% { opacity: .45; } }
   #gScore b { color: var(--accent); font-size: 15px; }
   #gTime.plus { animation: plus .5s ease-out; }
-  @keyframes plus { 0% { color: var(--gold); transform: scale(1.35); } 100% { transform: scale(1); } }
+  @keyframes plus { 0% { color: #6ee7a0; transform: scale(1.35); } 100% { transform: scale(1); } }
   #gPts { display: flex; justify-content: center; align-items: baseline; gap: 8px; margin-top: 2px; }
   #gPoints { font-size: 26px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums;
     line-height: 1.1; }
+  #gGoal { font-size: 10.5px; color: var(--dim); margin-top: 2px; min-height: 1em; }
+  #gGoal:empty { display: none; }
   /* points and the like jump up from the middle of the screen */
   #pops { position: fixed; left: 0; right: 0; top: 41%; z-index: 6; pointer-events: none;
     display: flex; flex-direction: column; align-items: center; gap: 2px; }
@@ -264,9 +218,9 @@
     text-shadow: 0 2px 8px rgba(0,0,0,.7); animation: pop 1.3s ease-out both; }
   .pop.big { font-size: 34px; color: var(--accent); }
   .pop.big.gold { font-size: 40px; }
-  .pop.time { color: var(--gold); }
+  .pop.time { color: #6ee7a0; }
   .pop.dim { color: var(--dim); font-size: 13px; font-weight: 500; }
-  .pop.record { font-size: 28px; color: var(--gold); animation-duration: 2.2s; }
+  .pop.record { font-size: 28px; color: #ffd23f; animation-duration: 2.2s; }
   @keyframes pop {
     0% { opacity: 0; transform: translateY(18px) scale(.6); }
     15% { opacity: 1; transform: translateY(0) scale(1.15); }
@@ -288,15 +242,13 @@
     animation: rush .25s linear infinite; }
   body.paused #rush { display: none !important; }
   @keyframes rush { 50% { transform: rotate(2deg) scale(1.03); } }
+  #gCompass { display: flex; align-items: center; justify-content: center; gap: 7px; color: #c9c6bf; font-size: 11px; }
+  #gTarget { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #banner { position: fixed; left: 50%; top: 31%; transform: translate(-50%, -8px); z-index: 6; pointer-events: none;
-    font-size: 17px; font-weight: 600; letter-spacing: .03em; background: rgba(9,23,37,.86); padding: 10px 20px;
-    border-radius: 10px; border: 1px solid rgba(189,163,59,.55); opacity: 0; transition: opacity .25s, transform .25s;
+    font-size: 17px; font-weight: 600; letter-spacing: .03em; background: rgba(14,16,21,.82); padding: 10px 20px;
+    border-radius: 10px; border: 1px solid rgba(63,191,111,.45); opacity: 0; transition: opacity .25s, transform .25s;
     max-width: calc(100vw - 32px); text-align: center; }
   #banner.on { opacity: 1; transform: translate(-50%, 0); }
-  /* a market reached: the cheer in gold, the market under it, the district small */
-  #banner .cheer { color: var(--gold); font-weight: 700; }
-  #banner .name { font-size: .82em; font-weight: 500; margin-top: 2px; }
-  #banner .where { font-size: .66em; font-weight: 400; color: var(--dim); margin-top: 2px; letter-spacing: .04em; }
   #count { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.6); z-index: 7;
     pointer-events: none; font-size: 110px; font-weight: 700; color: var(--accent); opacity: 0;
     text-shadow: 0 4px 24px rgba(0,0,0,.6); transition: opacity .2s, transform .3s; }
@@ -310,23 +262,23 @@
   body:not(.touch) #touch { display: none !important; }
   #touchMove { position: absolute; left: 0; bottom: 0; width: 50%; height: 70%; touch-action: none; }
   #touchLook { position: absolute; right: 0; top: 0; width: 50%; height: 100%; touch-action: none; }
-  /* pause and camera: round like the music and language buttons, at their height on the
-     other side (#corner in a game on a phone), night blue with a gold icon, gold when pressed */
-  #touchButtons { position: absolute; right: max(12px, env(safe-area-inset-right));
-    bottom: calc(max(4px, env(safe-area-inset-bottom)) + 26px); display: flex; gap: 8px; }
-  #touchButtons button { width: 40px; height: 40px; padding: 0; display: grid; place-items: center;
-    border-radius: 50%; border: 0; background: var(--navy); color: var(--gold); touch-action: none;
-    -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
-  #touchButtons button svg { width: 20px; height: 20px; }
-  #touchButtons button:active { background: var(--gold); color: var(--navy); }
+  #touchButtons { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: calc(max(4px, env(safe-area-inset-bottom)) + 30px);
+    display: grid; grid-template-columns: repeat(2, 56px); gap: 10px; }
+  #touchButtons button { width: 56px; height: 56px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2);
+    background: rgba(14,16,21,.55); color: var(--ui); font-size: 22px; touch-action: none;
+    -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  #touchButtons button:active { background: rgba(63,191,111,.5); }
   body.touch #stats { display: none; }
   body.touch #place, body.touch #maplabel { display: none; }
   body.touch #map { width: 110px; height: 110px; }
   body.touch #game { left: 12px; transform: none; min-width: 0; width: calc(100vw - 160px); max-width: 360px; }
   body.touch { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   /* a backdrop blur is redone every frame over a moving 3D scene: too dear for a phone's GPU */
-  body.touch .panel { backdrop-filter: none; -webkit-backdrop-filter: none; }
-  body.touch .panel { background: rgba(9,23,37,.86); }
+  body.touch .panel, body.touch #touchButtons button {
+    backdrop-filter: none; -webkit-backdrop-filter: none; }
+  body.touch .panel { background: rgba(14,16,21,.84); }
+  body.touch #touchButtons button { background: rgba(14,16,21,.7); }
   body.touch #credits { font-size: 8px; max-width: none; white-space: nowrap; padding: 3px 8px;
     bottom: max(4px, env(safe-area-inset-bottom)); opacity: .75; }
   /* a phone on its side: little height, so the game panel goes compact */
@@ -335,6 +287,7 @@
     body.touch #gTime { font-size: 17px; }
     body.touch #gPoints { font-size: 19px; }
     body.touch #gScore b { font-size: 12px; }
+    body.touch #gGoal { font-size: 9.5px; }
     body.touch #map { width: 88px; height: 88px; }
     #pops { top: 34%; }
     .pop.big { font-size: 24px; }
@@ -347,63 +300,55 @@
     .pop.big { font-size: 27px; }
     .pop.record { font-size: 22px; }
   }
-  /* the word mark stays on one line: it shrinks with a narrow window instead */
-  /* the title as the finder's modal heading: bold, 24px, light, the star after it */
-  #boot h1 { font-size: 24px; line-height: 32px; margin: 0 0 16px; font-weight: 700; color: rgba(245,248,254,.8); }
-  #boot h1 .nw { white-space: nowrap; }
-  #boot h1 img { display: inline-block; width: 32px; height: 32px; margin: -6px 0 0 14px; vertical-align: middle; }
-  #bar { height: 3px; background: rgba(245,248,254,.14); border-radius: 2px; overflow: hidden; }
+  #boot h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: .16em; font-weight: 700; overflow-wrap: anywhere; }
+  #boot h2 { font-size: 14px; margin: 0 0 26px; color: var(--dim); font-weight: 400; }
+  #bar { height: 3px; background: rgba(29,35,48,.12); border-radius: 2px; overflow: hidden; }
   #bar div { height: 100%; width: 0%; background: var(--accent); transition: width .18s ease; }
-  #bootmsg { font-size: 12px; color: var(--dim); margin-top: 12px; min-height: 1.4em; }
+  #bootmsg { font-size: 11px; color: var(--dim); margin-top: 12px; min-height: 1.4em; }
   /* between picking a game and its countdown (loading.ts): covers the city
      until the start has streamed in, in the game's own colours */
-  /* between Start and the countdown (loading.ts): the start menu's look - the night sky with
-     its light snow and Santa (loadingart.ts), and a box as the menu's, with the title, a gold
-     bar, a line to read and the way back */
   #gameLoading { position: fixed; inset: 0; z-index: 21; display: none; place-items: center;
-    overflow-x: hidden; overflow-y: auto; text-align: center; padding: 92px 16px 24px;
-    background: linear-gradient(#02060b, #040b14 45%, #06101c); }
+    overflow-x: hidden; overflow-y: auto; text-align: center; padding: 16px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    background: radial-gradient(110% 80% at 50% 8%, var(--gl-glow) 0%, var(--gl-base) 72%); }
   #gameLoading.on { display: grid; }
-  #gameLoading .card { position: relative; width: min(440px, 100%); padding: 24px;
-    background: var(--navy); border: 2px solid rgba(189,163,59,.5); border-radius: 8px;
-    color: rgba(245,248,254,.9); box-shadow: 0 10px 8px rgba(0,0,0,.04), 0 4px 3px rgba(0,0,0,.1); }
-  #gameLoading h2 { margin: 0 0 20px; font-size: 24px; line-height: 32px; font-weight: 700; color: rgba(245,248,254,.8); }
-  #gameLoading h2 img { display: inline-block; width: 28px; height: 28px; margin: -5px 0 0 10px; vertical-align: middle; }
-  #glTrack { height: 4px; margin: 0 auto; border-radius: 2px; background: rgba(245,248,254,.14); overflow: hidden; }
-  #glBar { height: 100%; width: 0; border-radius: inherit; background: var(--gold); transition: width .35s ease-out; }
-  #glLine { margin-top: 14px; min-height: 24px; font-size: 15px; line-height: 24px; color: rgba(245,248,254,.85); opacity: 0; }
-  #glBack { display: block; width: min(260px, 100%); margin: 20px auto 0; padding: 10px 16px; cursor: pointer;
-    background: var(--navy); color: var(--light); border: 2px solid rgba(245,248,254,.9); border-radius: 4px;
-    font: inherit; font-size: 16px; line-height: 24px; transition: border-color .15s, color .15s, background .15s; }
-  #glBack:hover, #glBack:focus-visible { background: var(--gold); border-color: var(--gold); color: var(--navy); outline: none; }
+  #gameLoading .card { position: relative; max-width: 480px; }
+  /* where loadingart.ts puts the game's 3D scene */
+  #glArt { height: 250px; margin-bottom: 10px; }
+  #glArt.none { height: 0; margin: 0; }
+  @media (max-height: 860px) { #glArt { height: 180px; } }
+  @media (max-height: 660px) { #glArt { height: 120px; } }
+  #glBack { display: block; margin: 18px auto 0; padding: 10px 22px; border: 1px solid rgba(255,255,255,.22);
+    border-radius: 8px; background: rgba(255,255,255,.08); cursor: pointer; color: #fff;
+    font: 14px system-ui, sans-serif; transition: background .15s, border-color .15s; }
+  #glBack:hover, #glBack:focus-visible { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.4); outline: none; }
+  #glTrack { width: min(320px, 80vw); height: 6px; margin: 0 auto; border-radius: 99px;
+    background: rgba(255,255,255,.12); overflow: hidden; }
+  #glBar { height: 100%; width: 0; border-radius: inherit; background: var(--gl-accent);
+    box-shadow: 0 0 14px var(--gl-accent); transition: width .35s ease-out; }
+  #glLine { margin-top: 12px; min-height: 1.4em; font-size: 13px; color: var(--gl-accent); opacity: 0; }
   #glLine.in { animation: glIn .4s ease-out forwards; }
   @keyframes glIn { from { opacity: 0; transform: translateY(4px); } to { opacity: .95; transform: none; } }
   @media (prefers-reduced-motion: reduce) {
     #glLine.in { animation: none; opacity: .95; }
   }
   #pause { position: fixed; inset: 0; z-index: 15; display: none; place-items: center;
-    background: rgba(3,8,14,.72); }
+    background: rgba(10,12,17,.72); }
   #pause.on { display: grid; }
   #pause .inner { text-align: center; padding: 22px 26px; max-width: calc(100vw - 32px);
-    background: rgba(9,23,37,.95); border: 1px solid rgba(245,248,254,.14); border-radius: 12px; }
+    background: rgba(14,16,21,.92); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; }
   #pause h3 { margin: 0 0 6px; font-size: 24px; letter-spacing: .12em; font-weight: 600; }
-  #pause p { margin: 4px 0; font-size: 12px; color: rgba(245,248,254,.8); }
+  #pause p { margin: 4px 0; font-size: 12px; color: #c9c6bf; }
   #pause p.note { font-size: 10px; color: var(--dim); margin-top: 12px; }
   #pause .rb { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
   #pause .rb button { padding: 12px 22px; font-size: 13px; }
   #hint { position: fixed; left: 50%; bottom: 26%; transform: translateX(-50%); z-index: 5;
-    font-size: 12px; letter-spacing: .06em; background: rgba(9,23,37,.84); padding: 8px 16px;
+    font-size: 12px; letter-spacing: .06em; background: rgba(14,16,21,.8); padding: 8px 16px;
     border-radius: 6px; border: 1px solid rgba(255,255,255,.1); opacity: 0; transition: opacity .25s; }
   #hint.on { opacity: 1; }
 </style>
 </head>
 <body>
-<!-- music and language, as the finder's round buttons: top right, over every screen -->
-<div id="corner">
-<button id="musicBtn" type="button" aria-pressed="false" aria-label="Musik"><svg xmlns="http://www.w3.org/2000/svg"
-  viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 13c0 1.105-1.12 2-2.5 2S1 14.105 1 13c0-1.104 1.12-2 2.5-2s2.5.896 2.5 2zm9-2c0 1.105-1.12 2-2.5 2s-2.5-.895-2.5-2 1.12-2 2.5-2 2.5.895 2.5 2z"/><path fill-rule="evenodd" d="M14 11V2h1v9h-1zM6 3v10H5V3h1z"/><path d="M5 2.905a1 1 0 0 1 .9-.995l8-.8a1 1 0 0 1 1.1.995V3L5 4V2.905z"/></svg></button>
-<button id="langBtn" type="button">DE</button>
-</div>
 <div id="hud">
   <div class="panel" id="place">Berlin<small>—</small></div>
   <div class="panel" id="stats"></div>
@@ -413,9 +358,10 @@
     <div id="gTime">5:00</div>
     <div id="gPts"><b id="gPoints">0</b></div>
     <div id="gScore"></div>
+    <div id="gGoal"></div>
+    <div id="gCompass"><span id="gTarget"></span></div>
   </div>
   <div class="panel" id="credits" data-i18n="credits"></div>
-  <div class="panel" id="keysPanel"><div class="keys"></div></div>
 </div>
 <div id="touch" style="display:none">
   <div id="touchMove"></div>
@@ -424,50 +370,41 @@
 </div>
 <div id="hint"></div>
 <canvas id="snow"></canvas>
-<div id="boot">
-<div class="inner"><div id="card">
-  <div id="cardMain">
-  <div id="cardHead">
-  <h1>Berliner Weihnachtsmarkt-<span class="nw">Sause<img src="/star.svg" alt=""></span></h1>
+<div id="boot"><div class="inner">
+  <div id="bootArt"></div>
+  <div id="ground">
+  <h1>BERLINER WEIHNACHTSMARKT-SAUSE</h1><h2 data-i18n-html="boot.sub">basierend auf Berlins offenen Weihnachtsmarktdaten</h2>
   <div id="loading">
     <div id="bar"><div></div></div>
     <div id="bootmsg">starte…</div>
   </div>
-  <div id="menuText">
+  <div id="menu">
     <div id="result"></div>
     <p id="intro"></p>
-  </div>
-  </div>
-  <div id="menu">
     <div id="mainBtns">
       <button id="playBtn" data-i18n="menu.play">Start</button>
       <button id="scoresBtn" data-i18n="scores.title">Bestenliste</button>
-      <button id="settingsBtn" data-i18n="menu.settings">Anleitung</button>
+      <button id="settingsBtn" data-i18n="menu.settings">Einstellungen</button>
       <a id="finderBtn" href="https://weihnachtsmaerkte.odis-berlin.de/?lang=de" target="_blank" rel="noopener"
         data-i18n="menu.finder">Zum Weihnachtsmarkt-Finder</a>
     </div>
-  </div>
-  </div>
-  <div id="menuFoot">
-    <p id="introData" data-i18n-html="menu.openData"></p>
-    <div id="menuCredits"></div>
     <div id="logos">
       <a href="https://odis-berlin.de" target="_blank" rel="noopener"><span data-i18n="menu.madeBy">Umgesetzt von</span>
         <img src="https://logos.citylab-berlin.org/logo-odis-berlin-coloured.svg" alt="ODIS"></a>
-      <div id="logosNote" data-i18n-html="menu.odisAbout"></div>
+      <a href="https://www.technologiestiftung-berlin.de/" target="_blank" rel="noopener"><span data-i18n="menu.projectBy">Ein Projekt der</span>
+        <img src="https://logos.citylab-berlin.org/logo-technologiestiftung-berlin-de.svg" alt="Technologiestiftung Berlin"></a>
+      <a href="https://www.berlin.de/rbmskzl/" target="_blank" rel="noopener"><span data-i18n="menu.supportedBy">Gefördert durch</span>
+        <img src="https://logos.citylab-berlin.org/logo-berlin-senatskanzelei-de.svg" alt="Senatskanzlei Berlin"></a>
     </div>
+    <div id="menuCredits"></div>
     <div id="menuContact" data-i18n-html="menu.contact"></div>
   </div>
-</div>
-<nav id="legal">
-  <a href="https://www.technologiestiftung-berlin.de/impressum" target="_blank" rel="noopener" data-i18n="menu.imprint">Impressum</a>
-  <a href="https://www.technologiestiftung-berlin.de/datenschutz" target="_blank" rel="noopener" data-i18n="menu.privacy">Datenschutz</a>
-</nav>
+  </div>
 </div></div>
 <div id="board" class="modal"></div>
 <div id="settings" class="modal"></div>
 <div id="gameLoading"><div class="card">
-  <h2>Berliner Weihnachtsmarkt-Sause<img src="/star.svg" alt=""></h2>
+  <div id="glArt"></div>
   <div id="glTrack"><div id="glBar"></div></div>
   <div id="glLine"></div>
   <button id="glBack"></button>
@@ -477,7 +414,7 @@
   <p id="pauseInfo"></p>
   <div class="rb">
     <button id="pauseResume" data-i18n="pause.resume">Weiter</button>
-    <button id="pauseSettings" class="alt" data-i18n="menu.settings">Anleitung</button>
+    <button id="pauseSettings" class="alt" data-i18n="menu.settings">Einstellungen</button>
     <button id="pauseRestart" class="alt" data-i18n="pause.restart">Neu starten</button>
     <button id="pauseExit" class="alt" data-i18n="pause.exit">Spiel beenden</button>
   </div>
