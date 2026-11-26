@@ -12,10 +12,10 @@ import { makeGame, startPoint, type Game } from './games';
 import { GameLoader } from './loading';
 import { bestCount } from './scores';
 import { Menu, type Choice } from './menu';
-import { applyStatic, onLang, t } from './i18n';
-import { CAMERA, PAUSE, Settings } from './settings';
-import { art } from './loadingart';
-import { unlockAudio } from './sfx';
+import { applyStatic, lang, onLang, setLang, t } from './i18n';
+import { CAMERA, PAUSE } from './controls';
+import { art, snowfall } from './loadingart';
+import { audioSettings, setAudio, unlockAudio } from './sfx';
 import { TouchControls, isTouchDevice } from './touch';
 import { makeSleigh, poseSleigh } from './sleigh';
 import { LOW } from './quality';
@@ -56,14 +56,13 @@ window.addEventListener('unhandledrejection', (e) => fail(e.reason));
 let worldLoaded = false;
 /** Start, pressed before the world was there. */
 let waiting: Choice | null = null;
-const settings = new Settings();
 const loader = new GameLoader();
 const menu = new Menu((c) => {
   if (worldLoaded) return void choose(c);
   waiting = c;
   loader.show(c.id);
   if (worldFailed) loader.stuck(t('load.later'));
-}, settings);
+});
 // backing out of that wait needs no step to finish: straight back to the menu
 loader.onCancel = () => {
   if (!waiting) return;
@@ -72,6 +71,27 @@ loader.onCancel = () => {
   menu.show();
 };
 menu.ready();
+
+// Language, snow and music, as the Weihnachtsmarkt-Finder's round buttons:
+// the language shows the one in use; the flake and the note are gold while on.
+const langBtn = document.getElementById('langBtn')!;
+const snowBtn = document.getElementById('snowBtn')!;
+const musicBtn = document.getElementById('musicBtn')!;
+const drawCorner = () => {
+  langBtn.textContent = lang.toUpperCase();
+  langBtn.title = t('menu.lang');
+  snowBtn.classList.toggle('on', snowfall.on);
+  snowBtn.title = t(snowfall.on ? 'menu.snowOff' : 'menu.snowOn');
+  snowBtn.setAttribute('aria-pressed', String(snowfall.on));
+  musicBtn.classList.toggle('on', audioSettings.on);
+  musicBtn.title = t(audioSettings.on ? 'menu.musicOff' : 'menu.musicOn');
+  musicBtn.setAttribute('aria-pressed', String(audioSettings.on));
+};
+langBtn.addEventListener('click', () => setLang(lang === 'de' ? 'en' : 'de'));
+snowBtn.addEventListener('click', () => { snowfall.on = !snowfall.on; drawCorner(); });
+musicBtn.addEventListener('click', () => { setAudio({ on: !audioSettings.on }); drawCorner(); });
+onLang(drawCorner);
+drawCorner();
 
 /* --- renderer ------------------------------------------------------------ */
 
@@ -152,6 +172,8 @@ if (world.manifest.environment) {
 
 const player = new Player(world);
 const hud = new HUD(world);
+// the labels are painted in Clan: a canvas does not wait for a web font
+await Promise.all(['700 30px Clan', '400 22px Clan'].map((f) => document.fonts.load(f).catch(() => [])));
 const sights = new SightLayer(scene, world, hud.overview);
 
 // Wait behind the menu where every game starts: the tiles it needs stream
@@ -291,13 +313,11 @@ function setPaused(on: boolean): void {
   if (on) {
     pauseInfo();
     if (document.pointerLockElement) document.exitPointerLock();
-  } else {
-    settings.close();
   }
 }
 
 const pauseInfo = () => { document.getElementById('pauseInfo')!.textContent = game?.status() ?? ''; };
-// the language can change in the settings, over the pause screen
+// the language can change with the button, over the pause screen
 onLang(() => { if (paused) pauseInfo(); });
 
 /** Pause a running game; Esc, P, the touch pause button, the tab going out of sight. */
@@ -311,7 +331,6 @@ function resume(): void {
 }
 
 document.getElementById('pauseResume')!.addEventListener('click', resume);
-document.getElementById('pauseSettings')!.addEventListener('click', () => settings.show());
 document.getElementById('pauseExit')!.addEventListener('click', () => endGame(true));
 document.getElementById('pauseRestart')!.addEventListener('click', () => {
   const c = gameChoice;
@@ -442,6 +461,16 @@ scene.add(avatar);
 const sleigh = makeSleigh();
 sleigh.visible = false;
 sleigh.rotation.order = 'YXZ';
+// The pins and names show through buildings (renderOrder 30, no depth test),
+// but must not through the sleigh in front of them: it goes in the
+// transparent pass, which is the one drawn after them, and last in it.
+sleigh.renderOrder = 40;
+sleigh.traverse((o) => {
+  const m = o as THREE.Mesh;
+  if (!m.isMesh) return;
+  m.renderOrder = 40;
+  for (const mat of [m.material].flat()) mat.transparent = true;
+});
 scene.add(sleigh);
 
 /* --- frame loop ---------------------------------------------------------- */

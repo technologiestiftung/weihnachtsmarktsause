@@ -12,6 +12,8 @@ const EYE = 1.72;
 const SLEIGH_CRUISE = 40;
 const SLEIGH_BOOST = 110;
 const SLEIGH_FLOOR = 6;
+/** Through a station's beam (games.ts): this much faster, for `boost` seconds. */
+const BOOST_FACTOR = 2;
 const SLEIGH_CEILING = 450;
 
 export class Player {
@@ -29,6 +31,8 @@ export class Player {
    *  player stands where the game left them, behind the menu. */
   sleigh = false;
   sleighSpeed = 0;
+  /** Seconds of extra speed left. */
+  boost = 0;
 
   constructor(world: World) {
     this.world = world;
@@ -64,8 +68,11 @@ export class Player {
    * rather than landing.
    */
   private updateSleigh(dt: number, keys: Set<string>): void {
-    const want = SLEIGH_BOOST * this.speedScale;
-    this.sleighSpeed += (want - this.sleighSpeed) * Math.min(1, dt * 1.6);
+    const boosted = this.boost > 0;
+    this.boost = Math.max(0, this.boost - dt);
+    const want = SLEIGH_BOOST * this.speedScale * (boosted ? BOOST_FACTOR : 1);
+    // into a boost with a kick, out of it gently
+    this.sleighSpeed += (want - this.sleighSpeed) * Math.min(1, dt * (boosted ? 4 : 1.6));
     const steer = (keys.has('KeyA') ? 1 : 0) - (keys.has('KeyD') ? 1 : 0) + this.turnInput(keys);
     this.yaw += Math.max(-1, Math.min(1, steer)) * 1.25 * dt;
     this.lean += (-steer * 0.45 - this.lean) * Math.min(1, dt * 4);
@@ -96,6 +103,7 @@ export class Player {
       this.pos.y = Math.max(this.pos.y, this.world.height(this.pos.x, this.pos.z) + 60);
     } else {
       this.sleighSpeed = 0;
+      this.boost = 0;
       this.lean = 0;
       this.settle();
     }

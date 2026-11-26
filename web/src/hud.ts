@@ -137,7 +137,7 @@ export class HUD {
     ctx.lineWidth = 1.1 / scale;
     ctx.lineJoin = 'round';
     for (const d of ov.districts) {
-      ctx.fillStyle = d === here ? 'rgba(63,191,111,.09)' : 'rgba(255,255,255,.05)';
+      ctx.fillStyle = d === here ? 'rgba(189,163,59,.12)' : 'rgba(255,255,255,.05)';
       ctx.fill(d.path);
     }
     ctx.strokeStyle = 'rgba(232,230,225,.42)';
@@ -175,8 +175,8 @@ export class HUD {
     ctx.translate(sx(px), sz(pz));
     // the camera looks along (-sin yaw, -cos yaw); north (-z) is up on the map
     ctx.rotate(-player.yaw);
-    ctx.fillStyle = '#3fbf6f';
-    ctx.strokeStyle = '#14161c';
+    ctx.fillStyle = '#BDA33B';
+    ctx.strokeStyle = '#091725';
     ctx.lineWidth = 1.3;
     ctx.beginPath();
     ctx.moveTo(0, -8);

@@ -3,8 +3,8 @@
  * downloaded. Browsers only allow audio after a click or key, so the
  * context is created on the first one (unlockAudio).
  *
- * Two buses, music and effects, feed a master gain; the settings screen sets
- * all three and the switch that silences everything. They are kept in this
+ * Two buses, music and effects, feed a master gain; the music button on the
+ * menu (main.ts) is the switch that silences everything. It is kept in this
  * browser.
  */
 
@@ -145,6 +145,12 @@ export const sfx = {
   record(): void {
     [72, 72, 72, 77, 81, 84].forEach((n, i) =>
       tone(NOTE(n), [0, 0.1, 0.2, 0.32, 0.5, 0.68][i], i === 5 ? 0.6 : 0.14, 'sawtooth', 0.16));
+  },
+  /** Through a station's beam: a whoosh up. */
+  boost(): void {
+    noise(0, 0.4, 0.28, 1800);
+    tone(NOTE(72), 0, 0.1, 'triangle', 0.18);
+    tone(NOTE(84), 0.07, 0.25, 'triangle', 0.18);
   },
   win(): void {
     [72, 76, 79, 84, 79, 84].forEach((n, i) => tone(NOTE(n), i * 0.12, 0.3, 'triangle', 0.35));

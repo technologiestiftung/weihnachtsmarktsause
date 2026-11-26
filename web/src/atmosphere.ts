@@ -27,10 +27,10 @@ import * as THREE from 'three';
 export const SUN_DIR = new THREE.Vector3(0.42, 0.72, 0.46).normalize();
 
 /** The haze at street level, in linear light. Through ACES they show as
- *  0x9fb2c6 and 0x0d1119 (at night exposure), the colours the fog had when
- *  it was blended in after tone mapping. */
+ *  about 0x9fb2c6 by day and, at night, the Weihnachtsmarktkarte's purple
+ *  night, 0x2b2c4e, rather than black. */
 export const FOG_DAY = new THREE.Color().setRGB(0.261, 0.366, 0.526);
-export const FOG_NIGHT = new THREE.Color().setRGB(0.018, 0.023, 0.033);
+export const FOG_NIGHT = new THREE.Color().setRGB(0.057, 0.058, 0.117);
 
 const vec3 = (v: THREE.Vector3) => `vec3(${v.x.toFixed(4)}, ${v.y.toFixed(4)}, ${v.z.toFixed(4)})`;
 

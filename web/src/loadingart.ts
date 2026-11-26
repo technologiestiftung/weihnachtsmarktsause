@@ -43,6 +43,10 @@ const glowTexture = () => canvasTexture(64, 64, (g) => {
   g.fillRect(0, 0, 64, 64);
 });
 
+/** Falling snow on or off, here and in the game: the snowflake button on the
+ *  menu (main.ts), as on the Weihnachtsmarkt-Finder. */
+export const snowfall = { on: true };
+
 /* --- Weihnachtsmarkt: snow, nothing else ----------------------------------- */
 
 function snow(): Art {
@@ -63,6 +67,7 @@ function snow(): Art {
   return {
     scene, view: [0, 0],
     update(t, dt) {
+      flakes.visible = snowfall.on;
       for (let i = 0; i < N; i++) {
         const k = i * 3;
         pos[k] += Math.sin(t * 0.8 + i) * dt * 0.35;

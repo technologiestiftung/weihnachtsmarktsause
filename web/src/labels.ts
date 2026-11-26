@@ -17,8 +17,9 @@ const probe = () => (probeCanvas ??= document.createElement('canvas').getContext
 
 export function labelTexture(text: string, colour: string, scale = 1, sub = ''): Label {
   const pad = 12;
-  const font = `600 ${Math.round(30 * scale)}px ui-monospace, Menlo, monospace`;
-  const small = `400 ${Math.round(22 * scale)}px ui-monospace, Menlo, monospace`;
+  // Clan, as on the page (fonts.css); main.ts waits for it before the first label
+  const font = `700 ${Math.round(30 * scale)}px Clan, sans-serif`;
+  const small = `400 ${Math.round(22 * scale)}px Clan, sans-serif`;
   const p = probe();
   p.font = font;
   let tw = p.measureText(text).width;
@@ -35,7 +36,7 @@ export function labelTexture(text: string, colour: string, scale = 1, sub = ''):
   g.font = font;
   g.textBaseline = 'middle';
   // dark plate keeps the text legible over whatever is underneath
-  g.fillStyle = 'rgba(14,16,21,.78)';
+  g.fillStyle = 'rgba(9,23,37,.8)';
   g.beginPath();
   const r = 8;
   g.moveTo(r, 0); g.arcTo(w, 0, w, h, r); g.arcTo(w, h, 0, h, r);
@@ -48,7 +49,7 @@ export function labelTexture(text: string, colour: string, scale = 1, sub = ''):
   if (sub) {
     g.fillText(text, pad, 25 * scale);
     g.font = small;
-    g.fillStyle = 'rgba(232,230,225,.75)';
+    g.fillStyle = 'rgba(245,248,254,.75)';
     g.fillText(sub, pad, 55 * scale);
   } else {
     g.fillText(text, pad, h / 2 + 1);

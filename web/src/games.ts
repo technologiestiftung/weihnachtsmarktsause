@@ -4,7 +4,10 @@ import type { Overview } from './overview';
 import type { Player } from './player';
 import { t } from './i18n';
 import { labelTexture, setDistance, type Label } from './labels';
-import { controls } from './settings';
+import { snowfall } from './loadingart';
+import { SIGHT_BEAM, STATION_BEAM, colourOf } from './sights';
+import type { Landmark, Station } from './overview';
+import { controls } from './controls';
 import { sfx } from './sfx';
 import { isTouchDevice } from './touch';
 import type { World } from './world';
@@ -15,8 +18,9 @@ import type { World } from './world';
  *
  * The loop: markets around the start, a beacon over each, the name of the
  * nearest, a clock, the sleigh, the snow and the night. What counts is how
- * many markets get their presents; each one puts a few seconds back on the
- * clock, and the best run from the start is chased live.
+ * many markets get their presents; a sight's beam puts a few seconds back on
+ * the clock, a station's gives a burst of speed, and the best run from the
+ * start is chased live.
  */
 
 /** The modes; their texts are in i18n.ts under mode.<id>.* */
@@ -335,8 +339,12 @@ export class Game {
   /** The most markets reached from the start, set by main.ts, to chase while playing. */
   best: number | null = null;
 
-  /** Seconds a target puts back on the clock, shrinking over a run. */
-  private readonly timeBonus = 3;
+  /** Seconds a sight's beam puts back on the clock. */
+  private readonly timeBonus = 5;
+  /** The colour of the station whose boost is running, for the speed lines. */
+  private boostColour = '#ffffff';
+  /** The sights already flown through: each gives its seconds once a game. */
+  private readonly sightsTaken = new Set<Landmark>();
   /** On top of GAME_PACE: the sleigh is quick already; much faster and the
    *  city cannot stream in, nor can you tell where in Berlin you are. */
   private readonly pace = 0.65;
@@ -348,6 +356,8 @@ export class Game {
   private readonly beaconWidth = 8;
 
   private beaten = false;
+  /** When (game seconds) each station last gave a boost: once per pass. */
+  private readonly boostedAt = new Map<Station, number>();
   private countdown = 3.4;
   private lastCount = 4;
   private lastSec = 0;
@@ -393,7 +403,7 @@ export class Game {
   start(): void {
     this.fov0 = this.host.camera.fov;
     el('game').classList.add('on');
-    // only the first row, the mouse or the finger: the rest is in the settings
+    // only the first row, the mouse or the finger: keep it simple
     el('countKeys').replaceChildren(...controls(this.info.id, isTouchDevice()).slice(0, 2));
     el('countKeys').classList.add('on');
     this.render();
@@ -421,7 +431,9 @@ export class Game {
     el('count').classList.remove('on');
     el('countKeys').classList.remove('on');
     el('banner').classList.remove('on');
+    el('watch').classList.remove('on');
     css(el('rush'), 'display', 'none');
+    el('rush').classList.remove('boost');
     el('pops').replaceChildren();
     this.host.hud.marks = [];
     this.host.hud.markets = [];
@@ -457,13 +469,14 @@ export class Game {
   }
 
   /** Text that jumps up from the middle of the screen and fades. */
-  private popup(text: string, cls = '', delay = 0, withStar = false): void {
+  private popup(text: string, cls = '', delay = 0, withStar = false): HTMLElement {
     const p = document.createElement('div');
     p.className = `pop ${cls}`;
     p.replaceChildren(...(withStar ? [starImg(), text] : [text]));
     p.style.animationDelay = `${delay}s`;
     p.addEventListener('animationend', () => p.remove());
     el('pops').append(p);
+    return p;
   }
 
   /** A flash over the whole screen. */
@@ -481,17 +494,60 @@ export class Game {
   private award(x: number, y: number, z: number): void {
     this.count++;
     this.popup(String(this.count), 'big', 0, true);
-    const secs = Math.max(1, Math.round(this.timeBonus * Math.max(0.4, 1 - this.count * 0.04)));
-    this.limit += secs;
-    this.popup(t('game.time', { n: secs }), 'time', 0.16);
-    const clock = el('gTime');
-    clock.classList.remove('plus');
-    void clock.offsetWidth;
-    clock.classList.add('plus');
     this.ring(x, y, z, PIN_COLOUR);
     this.kick = 6;
     this.flash();
     this.checkRecord();
+  }
+
+  /** Through a sight's beam, below its top: seconds back on the clock, once
+   *  per sight and game. As with the stations the hit is wider than the beam. */
+  private sightTime(): void {
+    const p = this.host.player;
+    const REACH = 15;
+    if (p.pos.y - this.host.world.height(p.pos.x, p.pos.z) > SIGHT_BEAM.height + 10) return;
+    for (const l of this.host.hud.overview.landmarks) {
+      if (this.sightsTaken.has(l)) continue;
+      if (Math.abs(l.x - p.pos.x) > REACH || Math.abs(l.z - p.pos.z) > REACH) continue;
+      if (Math.hypot(l.x - p.pos.x, l.z - p.pos.z) > REACH) continue;
+      this.sightsTaken.add(l);
+      this.limit += this.timeBonus;
+      // a stopwatch, its hand turned back the seconds given
+      const watch = el('watch');
+      put(el('watchText'), t('game.time', { n: this.timeBonus }));
+      watch.style.setProperty('--back', `${-this.timeBonus * 6}deg`);
+      watch.classList.remove('on');
+      void watch.offsetWidth;
+      watch.classList.add('on');
+      const clock = el('gTime');
+      clock.classList.remove('plus');
+      void clock.offsetWidth;
+      clock.classList.add('plus');
+      sfx.jingle();
+    }
+  }
+
+  /** Through a station's beam (S-, U-Bahn or regional: every one in the
+   *  overview has one), below its top: a few seconds
+   *  of extra speed. The hit is wider than the beam - it's hard to thread at
+   *  speed - and a station boosts again only after a while. */
+  private stationBoost(): void {
+    const p = this.host.player;
+    const REACH = 12;
+    // the start is at a station (Friedrichstraße): leaving it is no boost
+    if (this.time < 1) return;
+    if (p.pos.y - this.host.world.height(p.pos.x, p.pos.z) > STATION_BEAM.height + 10) return;
+    for (const st of this.host.hud.overview.stations) {
+      if (Math.abs(st.x - p.pos.x) > REACH || Math.abs(st.z - p.pos.z) > REACH) continue;
+      if (Math.hypot(st.x - p.pos.x, st.z - p.pos.z) > REACH) continue;
+      if (this.time - (this.boostedAt.get(st) ?? -Infinity) < 6) continue;
+      this.boostedAt.set(st, this.time);
+      p.boost = 2.5;
+      this.boostColour = colourOf(st);
+      // big, in the station's colour, like the speed lines it comes with
+      this.popup(t('game.boost'), 'turbo').style.color = this.boostColour;
+      sfx.boost();
+    }
   }
 
   /** Passed the best run? Say so, once. */
@@ -547,6 +603,7 @@ export class Game {
         el('countKeys').classList.remove('on');
       }
     } else if (this.state === 'play') {
+      this.snow.points.visible = snowfall.on;
       this.snow.update(dt, this.host.camera.position);
       p.speedScale = GAME_PACE * this.pace;
       for (const s of this.spots) {
@@ -554,6 +611,8 @@ export class Game {
         const d = Math.hypot(s.x - p.pos.x, s.z - p.pos.z);
         if (d < s.reach && this.inReach()) this.reached(s);
       }
+      this.stationBoost();
+      this.sightTime();
       // the last ten seconds count themselves down
       const sec = Math.ceil(this.limit - this.time);
       if (sec !== this.lastSec && sec <= 10 && sec > 0) sfx.tick(sec <= 3);
@@ -605,6 +664,10 @@ export class Game {
     const lines = el('rush');
     css(lines, 'opacity', String(Math.round(this.rushMix * 70) / 100));
     css(lines, 'display', this.rushMix > 0.01 ? 'block' : 'none');
+    // in a station's boost: twice the lines, twice as fast, in the station's colour
+    const boosting = this.state === 'play' && this.host.player.boost > 0;
+    lines.classList.toggle('boost', boosting);
+    if (boosting) lines.style.setProperty('--rush', this.boostColour);
   }
 
   /** Over a market counts anywhere in its column of light, up to the top. */
@@ -695,7 +758,8 @@ export class Game {
 
   /** What is still to aim for: the best run so far. */
   private goalLine(): string {
-    if (!this.best) return '';
+    // from the second game on, even when the first found no market
+    if (this.best === null) return '';
     return this.beaten ? t('game.beaten') : t('game.best', { n: this.text('unit', { n: this.best }) });
   }
 

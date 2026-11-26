@@ -3,11 +3,10 @@ import { lang, onLang, t } from './i18n';
 import { playerName, setPlayerName, standing, type Board } from './ranking';
 import { Scoreboard } from './scoreboard';
 import { bestCount, recordRun, type Run } from './scores';
-import type { Settings } from './settings';
 import { art } from './loadingart';
 
 /**
- * The start menu, on black with a lit tree in falling snow: start, high scores and settings, with a
+ * The start menu, on a purple night with a lit tree in falling snow: start and high scores, with a
  * game's result above them.
  *
  * Every game starts at the same place (games.ts, START_STATION), so runs compare
@@ -36,14 +35,13 @@ export class Menu {
   private standing: Promise<Board> | null = null;
   open = true;
 
-  constructor(private readonly onPick: (c: Choice) => void, private readonly settings: Settings) {
+  constructor(private readonly onPick: (c: Choice) => void) {
     onLang(() => { this.render(); this.redraw?.(); });
     // there is one game on one course: start plays it
     document.getElementById('playBtn')!.addEventListener('click',
       () => this.pick({ id: MODE_INFO[0].id }));
-    // high scores and settings open in a box over the menu
+    // the high scores open in a box over the menu
     document.getElementById('scoresBtn')!.addEventListener('click', () => this.scoreboard.show(this.lastMode));
-    document.getElementById('settingsBtn')!.addEventListener('click', () => this.settings.show());
   }
 
   /** Clears the panel above the buttons. */
@@ -75,7 +73,6 @@ export class Menu {
     this.boot.style.display = 'none';
     this.closePanel();
     this.scoreboard.close();
-    this.settings.close();
     art.hide(this.boot);
   }
 
@@ -173,6 +170,8 @@ export class Menu {
     // the round's length comes from games.ts, so the text says it as it is
     this.intro.textContent = modeText(MODE_INFO[0].id, 'intro');
     this.credits.innerHTML = t('menu.sources', { markets: modeText(MODE_INFO[0].id, 'source'), rest: t('credits') });
-    this.finder.href = `https://weihnachtsmaerkte.odis-berlin.de/?lang=${lang}`;
+    // tagged as the Finder tags its link here, so Matomo there sees where visits came from
+    this.finder.href = `https://weihnachtsmaerkte.odis-berlin.de/?lang=${lang}&mtm_campaign=weihnachtsmarktsause&mtm_kwd=menu`;
+    this.finder.title = t('menu.finderTitle');
   }
 }

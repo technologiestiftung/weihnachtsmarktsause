@@ -7,35 +7,36 @@
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/favicon.png">
 <style>
-  :root { --ui: #e8e6e1; --dim: #9a978f; --accent: #3fbf6f; }
+  :root { --ui: #F5F8FE; --dim: #9fb1c6; --accent: #BDA33B; --night: #2b2c4e; --navy: #091725; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #0f1116;
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--navy);
     font-family: "Clan", sans-serif; color: var(--ui); }
   canvas { display: block; width: 100%; height: 100%; }
-  #hud { position: fixed; inset: 0; pointer-events: none; }
-  .panel { position: absolute; background: rgba(14,16,21,.72); border: 1px solid rgba(255,255,255,.10);
-    border-radius: 8px; padding: 9px 11px; font-size: 11px; line-height: 1.5;
+  /* over the speed lines (#rush, z-index 4): none of them under the map or the clock */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  .panel { position: absolute; background: rgba(9,23,37,.72); border: 1px solid rgba(255,255,255,.10);
+    border-radius: 8px; padding: 9px 11px; font-size: 12px; line-height: 1.5;
     backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); }
   #stats { top: 12px; left: 12px; min-width: 172px; }
   #stats b { color: var(--accent); font-weight: 600; }
   #place { top: 12px; left: 50%; transform: translateX(-50%); text-align: center;
-    font-size: 13px; letter-spacing: .09em; text-transform: uppercase; padding: 7px 16px; }
-  #place small { display: block; font-size: 10px; letter-spacing: .04em;
+    font-size: 14px; letter-spacing: .09em; text-transform: uppercase; padding: 7px 16px; }
+  #place small { display: block; font-size: 12px; letter-spacing: .04em;
     text-transform: none; color: var(--dim); margin-top: 2px; }
   #mapwrap { top: 12px; right: 12px; padding: 7px; }
   #map { display: block; border-radius: 4px; image-rendering: pixelated; }
-  #maplabel { font-size: 9.5px; color: var(--dim); text-align: center; margin-top: 5px;
+  #maplabel { font-size: 12px; color: var(--dim); text-align: center; margin-top: 5px;
     letter-spacing: .05em; width: 190px; }
-  #maplabel b { display: block; color: var(--ui); font-size: 11px; font-weight: 600; letter-spacing: .06em; }
-  #maplabel small { display: block; font-size: 9.5px; color: #c9c6bf; white-space: nowrap; overflow: hidden;
+  #maplabel b { display: block; color: var(--ui); font-size: 12px; font-weight: 600; letter-spacing: .06em; }
+  #maplabel small { display: block; font-size: 12px; color: #c5d1df; white-space: nowrap; overflow: hidden;
     text-overflow: ellipsis; }
-  #maplabel span { display: block; margin-top: 2px; font-size: 8.5px; }
-  #credits { bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 9.5px;
+  #maplabel span { display: block; margin-top: 2px; font-size: 12px; }
+  #credits { bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 12px;
     color: var(--dim); text-align: center; max-width: 60ch; }
   #credits a { color: var(--dim); }
   #boot { position: fixed; inset: 0; display: flex; justify-content: center; z-index: 20;
     overflow-x: hidden; overflow-y: auto;
-    background: linear-gradient(#020309, #070b16 45%, #0c1222 75%); --art: 220px; }
+    background: linear-gradient(#17182e, #22233f 45%, var(--night) 75%); --art: 220px; }
   @media (max-height: 760px) { #boot { --art: 160px; } }
   @media (max-height: 560px) { #boot { --art: 100px; } }
   /* night above, the text on the snowfield the tree stands in below; the two
@@ -48,7 +49,7 @@
   /* the snowfield (public/art/near.svg): from the tree's foot, 0.88 of the way down the spacer, to the
      bottom of the screen, and the full width of it; over the falling snow, which so lands on it. At the
      foot the tree's shadow and the warm spill of its lights */
-  #ground { --ui: #1d2330; --dim: #5f6675; --accent: #1b7a43; --accent-ink: #1b7a43; color: var(--ui); flex: 1 0 auto;
+  #ground { --ui: #091725; --dim: #5f6675; --accent: #BDA33B; --accent-ink: #A79034; color: var(--ui); flex: 1 0 auto;
     position: relative; display: flex; flex-direction: column;
     margin: calc(var(--art) * -0.12) calc(50% - 50vw) 0; padding: calc(var(--art) * 0.12 + 14px) calc(50vw - 50%) 24px;
     background:
@@ -75,53 +76,71 @@
   #mainBtns { display: flex; flex-direction: column; gap: 10px; width: min(280px, 100%); margin: 0 auto; }
   #mainBtns button, #mainBtns a { pointer-events: auto; background: rgba(29,35,48,.04); color: var(--ui);
     border: 1px solid rgba(29,35,48,.22); border-radius: 8px; padding: 12px 18px; font: inherit;
-    font-size: 15px; cursor: pointer;
+    font-size: 14px; cursor: pointer;
     transition: border-color .15s, transform .15s, background .15s; }
   #mainBtns button:hover, #mainBtns button:focus-visible, #mainBtns a:hover, #mainBtns a:focus-visible { border-color: var(--accent); transform: translateY(-1px);
     outline: none; }
-  #mainBtns #playBtn { background: var(--accent); border-color: var(--accent); color: #14161c; font-weight: 700;
+  #mainBtns #playBtn { background: var(--accent); border-color: var(--accent); color: var(--navy); font-weight: 700;
     font-size: 17px; letter-spacing: .12em; text-transform: uppercase; padding: 15px 18px; }
-  #mainBtns #finderBtn { display: block; text-decoration: none; }
-  #mainBtns #playBtn:hover, #mainBtns #playBtn:focus-visible { background: #22914f; }
+  /* off to the Weihnachtsmarkt-Finder, another site: not a button but a link, as the Finder's own
+     link to this game - gold, bold, underlined, with the arrow out */
+  #mainBtns #finderBtn { display: block; align-self: center; background: none; border: 0; padding: 8px 4px;
+    color: var(--accent-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+  #mainBtns #finderBtn svg { display: inline-block; margin-left: 3px; vertical-align: -2px; }
+  #mainBtns #finderBtn:hover, #mainBtns #finderBtn:focus-visible { color: var(--ui); transform: none; }
+  #mainBtns #playBtn:hover, #mainBtns #playBtn:focus-visible { background: #A79034; }
   /* who made it, and the data credits */
-  #introData { font-size: 11px; margin: 32px auto 0; max-width: 60ch; }
+  #introData { font-size: 12px; margin: 32px auto 0; max-width: 60ch; }
   #introData a { color: var(--accent-ink); pointer-events: auto; }
   #logos { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 6px 32px; margin: 14px auto 0; }
   #logos a { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--dim);
-    font-size: 9.5px; text-decoration: none; pointer-events: auto; }
+    font-size: 12px; text-decoration: none; pointer-events: auto; }
   #logos img { display: block; height: 30px; width: auto; }
-  #menuCredits, #menuContact, #logosNote { font-size: 9px; color: var(--dim); margin: 10px auto 0; max-width: 60ch; line-height: 1.5; }
+  #menuCredits, #menuContact, #logosNote { font-size: 12px; color: var(--dim); margin: 10px auto 0; max-width: 60ch; line-height: 1.5; }
   #menuContact { margin-top: 6px; }
   /* a line of its own under the logos, which then centre on theirs */
-  #logosNote { flex-basis: 100%; max-width: none; margin-top: 0; }
+  #logosNote { flex-basis: 100%; max-width: none; margin-top: 10px; }
   #boot h2 a, #menuCredits a, #menuContact a, #logosNote a { color: inherit; pointer-events: auto; }
   /* imprint and privacy: small and quiet, under the menu */
-  #legal { display: none; justify-content: center; gap: 14px; margin-top: 10px; font-size: 9.5px; }
+  #legal { display: none; justify-content: center; gap: 14px; margin-top: 10px; font-size: 12px; }
   #boot.ready #legal { display: flex; }
   #legal a { color: var(--dim); text-decoration: none; pointer-events: auto; }
   #legal a:hover, #legal a:focus-visible { text-decoration: underline; }
   #result { display: none; margin: 0 auto 18px; max-width: 520px; }
   /* what the game is about; a result takes its place */
-  #intro { max-width: 46ch; margin: 0 auto 20px; font-size: 13.5px; line-height: 1.55; color: #3d4452; }
+  #intro { max-width: 46ch; margin: 0 auto 20px; font-size: 14px; line-height: 1.55; color: #2c3a4d; }
   /* a result takes the intro's place; a note (a game left early) sits above it */
   #result.on:not(.note) + #intro { display: none; }
   #result.on { display: block; }
   #result h3 { font-size: 22px; margin: 0 0 6px; letter-spacing: .06em; font-weight: 600; }
   #result .big { font-size: 46px; color: var(--accent-ink); font-weight: 600; line-height: 1.1; }
-  #result p { font-size: 11.5px; color: #3d4452; margin: 4px 0; }
+  #result p { font-size: 14px; color: #2c3a4d; margin: 4px 0; }
   #result p.rank { color: var(--accent-ink); font-weight: 600; }
   #result form.join { margin: 10px auto 0; max-width: 340px; }
   #result p.short { color: #9a6b00; font-weight: 600; }
-  #result p.src { font-size: 9.5px; color: var(--dim); }
+  #result p.src { font-size: 12px; color: var(--dim); }
   #result .rb { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
-  .rb button { pointer-events: auto; background: var(--accent); color: #14161c; border: 0; border-radius: 6px;
-    padding: 9px 18px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; letter-spacing: .06em; }
+  .rb button { pointer-events: auto; background: var(--accent); color: var(--navy); border: 0; border-radius: 6px;
+    padding: 9px 18px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; letter-spacing: .06em; }
   .rb button.alt { background: rgba(255,255,255,.1); color: var(--ui); }
   /* on the snow the accent is a deeper green, and the buttons on it white on green */
   #ground #playBtn, #ground .rb button:not(.alt), #ground form .row button { color: #fff; }
   #ground .rb button.alt { background: rgba(29,35,48,.08); }
   #ground form .row input { background: #fff; border-color: rgba(29,35,48,.22); color: var(--ui); }
   /* the high scores and the settings: a box over the menu (or the pause screen), with tabs */
+  /* language, snow and music (main.ts), as on the Weihnachtsmarkt-Finder: 40 px rounds, top right; only
+     over the menu and the pause screen, not over a game in play */
+  /* right: clear of the menu's own scrollbar */
+  #corner { position: fixed; top: max(16px, env(safe-area-inset-top)); right: max(28px, env(safe-area-inset-right));
+    z-index: 25; display: flex; flex-direction: column; gap: 8px; }
+  body.gaming:not(.paused) #corner { display: none; }
+  #corner button { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; padding: 0;
+    cursor: pointer; font: 700 14px "Clan", sans-serif; border: 0; transition: background .15s, color .15s; }
+  #langBtn { background: var(--accent); color: var(--navy); }
+  #langBtn:hover, #langBtn:focus-visible { background: #A79034; outline: none; }
+  #snowBtn, #musicBtn { background: var(--navy); color: var(--accent); }
+  #snowBtn.on, #snowBtn:hover, #snowBtn:focus-visible,
+  #musicBtn.on, #musicBtn:hover, #musicBtn:focus-visible { background: var(--accent); color: var(--navy); outline: none; }
   .modal { position: fixed; inset: 0; z-index: 30; display: none; place-items: center; pointer-events: auto;
     background: rgba(8,10,14,.72); padding: 16px; }
   .modal.on { display: grid; }
@@ -130,18 +149,18 @@
   .modal h3 { margin: 0 0 12px; font-size: 18px; letter-spacing: .08em; font-weight: 600; text-align: center; }
   .modal .x { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%;
     background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); color: var(--ui);
-    font: inherit; font-size: 13px; cursor: pointer; }
+    font: inherit; font-size: 14px; cursor: pointer; }
   .modal .x:hover, .modal .x:focus-visible { border-color: var(--accent); outline: none; }
-  .modal p { font-size: 11.5px; color: #c9c6bf; margin: 4px 0; }
+  .modal p { font-size: 14px; color: #c5d1df; margin: 4px 0; }
   .modal p.dim, .modal p.src { color: var(--dim); }
-  .modal p.src { font-size: 9.5px; margin-top: 12px; }
-  .modal p.sub { color: var(--dim); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; margin: 14px 0 4px; }
+  .modal p.src { font-size: 12px; margin-top: 12px; }
+  .modal p.sub { color: var(--dim); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; margin: 14px 0 4px; }
   form .row { display: flex; gap: 6px; }
   form .row input { flex: 1; min-width: 0; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.16);
-    border-radius: 6px; color: var(--ui); font: inherit; font-size: 13px; padding: 7px 9px; }
+    border-radius: 6px; color: var(--ui); font: inherit; font-size: 14px; padding: 7px 9px; }
   form .row input:focus { outline: none; border-color: var(--accent); }
-  form .row button { background: var(--accent); color: #14161c; border: 0; border-radius: 6px; font: inherit;
-    font-size: 12px; font-weight: 600; padding: 7px 14px; cursor: pointer; letter-spacing: .04em; }
+  form .row button { background: var(--accent); color: var(--navy); border: 0; border-radius: 6px; font: inherit;
+    font-size: 14px; font-weight: 600; padding: 7px 14px; cursor: pointer; letter-spacing: .04em; }
   form .row button:disabled { opacity: .5; }
   /* iOS zooms into a field with text under 16px */
   body.touch form .row input { font-size: 16px; }
@@ -149,71 +168,47 @@
     border-bottom: 1px solid rgba(255,255,255,.1); }
   .modal .tabs button { flex: 1 0 auto; display: flex; gap: 6px; align-items: center; justify-content: center;
     background: none; border: 0; border-bottom: 2px solid transparent; color: var(--dim); font: inherit;
-    font-size: 11px; padding: 8px 8px 7px; cursor: pointer; white-space: nowrap; }
+    font-size: 12px; padding: 8px 8px 7px; cursor: pointer; white-space: nowrap; }
   .modal .tabs button:hover, .modal .tabs button:focus-visible { color: var(--ui); outline: none; }
   .modal .tabs button.on { color: var(--ui); border-bottom-color: var(--accent); }
   /* five titles don't fit: the open tab names its game, the others show their emoji */
   #board .tabs button:not(.on) .tt { display: none; }
   .modal .tabbody { min-height: 220px; }
-  #board table.scores { width: 100%; border-collapse: collapse; font-size: 12px; }
+  #board table.scores { width: 100%; border-collapse: collapse; font-size: 14px; }
   #board table.scores td { padding: 5px 6px; border-top: 1px solid rgba(255,255,255,.07); white-space: nowrap; }
   #board table.scores td.n { text-align: right; font-variant-numeric: tabular-nums; width: 1%; }
   #board table.scores td.who { overflow: hidden; text-overflow: ellipsis; max-width: 0; width: 100%; }
-  #board table.scores td.pts { color: var(--dim); font-size: 10.5px; }
+  #board table.scores td.pts { color: var(--dim); font-size: 12px; }
   #board table.scores tr.me td { color: var(--accent); font-weight: 600; }
   #board table.scores tr.gap td { color: var(--dim); border-top: 0; padding: 0 6px; }
-  #board .recent { font-size: 11px; color: #c9c6bf; line-height: 1.7; }
+  #board .recent { font-size: 12px; color: #c5d1df; line-height: 1.7; }
   /* settings: a label, then its control */
-  #settings .tabbody { min-height: 0; padding-top: 10px; }
-  #settings .set { display: grid; grid-template-columns: 9em 1fr 3.5em; gap: 10px; align-items: center;
-    padding: 9px 2px; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,.06); cursor: default; }
-  #settings .set.off { opacity: .45; }
-  #settings .lbl { color: #c9c6bf; }
-  #settings .val { text-align: right; color: var(--dim); font-variant-numeric: tabular-nums; font-size: 11px; }
-  #settings .seg { grid-column: 2 / -1; justify-self: start; display: flex; gap: 4px; }
-  #settings .seg button { background: rgba(255,255,255,.06); color: var(--dim); border: 1px solid rgba(255,255,255,.14);
-    border-radius: 5px; font: inherit; font-size: 11px; padding: 5px 12px; cursor: pointer; letter-spacing: .08em; }
-  #settings .seg button.on { color: #14161c; background: var(--accent); border-color: var(--accent); }
-  #settings .seg button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
-  #settings input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
-  #settings input[type=range]:disabled { cursor: default; }
-  #settings input.switch { grid-column: 2; justify-self: start; appearance: none; -webkit-appearance: none;
-    width: 38px; height: 21px; margin: 0; border-radius: 99px; position: relative; cursor: pointer;
-    background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.18); transition: background .15s; }
-  #settings input.switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px;
-    border-radius: 50%; background: var(--ui); transition: transform .15s; }
-  #settings input.switch:checked { background: var(--accent); border-color: var(--accent); }
-  #settings input.switch:checked::after { transform: translateX(17px); background: #14161c; }
-  #settings input.switch:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
-  #settings .tabbody > p { font-size: 11.5px; line-height: 1.55; }
-  #settings .tabbody > p.dim { font-size: 10.5px; margin-top: 12px; }
   /* the controls: in the settings and under the countdown */
   .keys { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; align-items: center;
-    margin: 10px 0 4px; padding: 12px 14px; text-align: left; font-size: 12px; color: #dedbd4;
+    margin: 10px 0 4px; padding: 12px 14px; text-align: left; font-size: 14px; color: #dfe6ef;
     background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; }
   .keys .k { justify-self: end; white-space: nowrap; }
   .keys kbd { display: inline-block; min-width: 24px; margin-left: 4px; padding: 3px 7px;
     border-radius: 6px; border: 1px solid rgba(255,255,255,.2); border-bottom-width: 3px;
-    background: rgba(255,255,255,.1); color: #fff; font: 600 11px system-ui, sans-serif; text-align: center; }
+    background: rgba(255,255,255,.1); color: #fff; font: 700 12px "Clan", sans-serif; text-align: center; }
   .keys svg.mouse { width: 17px; height: 25px; margin-left: 4px; vertical-align: middle; color: #fff; }
   .keys svg.icon { width: 22px; height: 22px; margin-left: 4px; vertical-align: middle; color: #fff; }
   .keys .pairs { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; }
   .keys .pairs kbd, .keys .pairs svg.mouse { margin: 0 6px 0 0; }
   .keys .tip { grid-column: 1 / -1; margin-top: 4px; color: var(--accent); }
-  #settings kbd { font-family: inherit; }
   #game { top: 62px; left: 50%; transform: translateX(-50%); min-width: 260px; max-width: calc(100vw - 32px);
-    text-align: center; display: none; font-size: 12px; }
+    text-align: center; display: none; font-size: 14px; }
   #game.on { display: block; }
   #gTime { font-size: 22px; font-variant-numeric: tabular-nums; font-weight: 600; }
   #gTime.low { color: #ff6b5b; animation: pulse 1s infinite; }
   @keyframes pulse { 50% { opacity: .45; } }
-  #gScore b { color: var(--accent); font-size: 15px; }
+  #gScore b { color: var(--accent); font-size: 14px; }
   #gTime.plus { animation: plus .5s ease-out; }
-  @keyframes plus { 0% { color: #6ee7a0; transform: scale(1.35); } 100% { transform: scale(1); } }
+  @keyframes plus { 0% { color: #e3d27e; transform: scale(1.35); } 100% { transform: scale(1); } }
   #gPts { display: flex; justify-content: center; align-items: baseline; gap: 8px; margin-top: 2px; }
   #gPoints { font-size: 26px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums;
     line-height: 1.1; }
-  #gGoal { font-size: 10.5px; color: var(--dim); margin-top: 2px; min-height: 1em; }
+  #gGoal { font-size: 12px; color: var(--dim); margin-top: 2px; min-height: 1em; }
   #gGoal:empty { display: none; }
   /* points and the like jump up from the middle of the screen */
   #pops { position: fixed; left: 0; right: 0; top: 41%; z-index: 6; pointer-events: none;
@@ -221,11 +216,15 @@
   .pop { white-space: nowrap; font-weight: 700; font-size: 18px; color: #fff; line-height: 1.15;
     text-shadow: 0 2px 8px rgba(0,0,0,.7); animation: pop 1.3s ease-out both; }
   .pop.big { font-size: 34px; color: var(--accent); }
+  /* a station's boost: big, slanted, in the station's colour (games.ts) */
+  .pop.turbo { font-size: 72px; font-weight: 700; font-style: italic; letter-spacing: .02em;
+    text-shadow: 0 3px 18px rgba(0,0,0,.55); animation-duration: 1.4s; }
+  @media (max-width: 640px) { .pop.turbo { font-size: 52px; } }
   /* the star (public/star.png) in front of a hit's count or name */
   .pop img.star, #banner img.star { height: .9em; width: auto; vertical-align: -.08em; margin-right: .25em; }
   .pop.big.gold { font-size: 40px; }
-  .pop.time { color: #6ee7a0; }
-  .pop.dim { color: var(--dim); font-size: 13px; font-weight: 500; }
+  .pop.time { color: #e3d27e; }
+  .pop.dim { color: var(--dim); font-size: 14px; font-weight: 500; }
   .pop.record { font-size: 28px; color: #ffd23f; animation-duration: 2.2s; }
   @keyframes pop {
     0% { opacity: 0; transform: translateY(18px) scale(.6); }
@@ -246,11 +245,27 @@
     -webkit-mask: radial-gradient(ellipse at center, transparent 38%, #000 75%);
     mask: radial-gradient(ellipse at center, transparent 38%, #000 75%);
     animation: rush .25s linear infinite; }
+  /* a station's boost: twice the lines, twice as fast, in its colour (--rush, games.ts) */
+  #rush.boost { animation-duration: .125s;
+    background: repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg 2.5deg,
+      color-mix(in srgb, var(--rush, #fff) 60%, transparent) 2.7deg, transparent 3deg 5.5deg); }
   body.paused #rush { display: none !important; }
+  #watch { position: fixed; left: 50%; top: 24%; z-index: 6; pointer-events: none; opacity: 0;
+    transform: translateX(-50%); text-align: center; color: var(--accent); }
+  #watch svg { width: 64px; height: 72px; fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: round;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,.6)); }
+  #watch svg rect, #watch svg .hub { fill: currentColor; stroke: none; }
+  #watch .hand { transform-box: view-box; transform-origin: 32px 42px; }
+  #watchText { font-size: 22px; font-weight: 700; color: #e3d27e; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+  #watch.on { animation: watchIn 1.6s ease-out forwards; }
+  #watch.on .hand { animation: watchBack .7s .2s ease-in-out forwards; }
+  @keyframes watchIn { 0% { opacity: 0; transform: translateX(-50%) scale(.7); }
+    15%, 75% { opacity: 1; transform: translateX(-50%) scale(1); } 100% { opacity: 0; } }
+  @keyframes watchBack { from { transform: rotate(0deg); } to { transform: rotate(var(--back, -30deg)); } }
   @keyframes rush { 50% { transform: rotate(2deg) scale(1.03); } }
   #banner { position: fixed; left: 50%; top: 31%; transform: translate(-50%, -8px); z-index: 6; pointer-events: none;
-    font-size: 17px; font-weight: 600; letter-spacing: .03em; background: rgba(14,16,21,.82); padding: 10px 20px;
-    border-radius: 10px; border: 1px solid rgba(63,191,111,.45); opacity: 0; transition: opacity .25s, transform .25s;
+    font-size: 17px; font-weight: 600; letter-spacing: .03em; background: rgba(9,23,37,.82); padding: 10px 20px;
+    border-radius: 10px; border: 1px solid rgba(189,163,59,.45); opacity: 0; transition: opacity .25s, transform .25s;
     max-width: calc(100vw - 32px); text-align: center; }
   #banner.on { opacity: 1; transform: translate(-50%, 0); }
   #count { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.6); z-index: 7;
@@ -259,13 +274,15 @@
   #count.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   /* how to fly, while the countdown runs and nothing can be steered yet */
   #countKeys { position: fixed; left: 50%; top: 61%; transform: translateX(-50%); z-index: 7; pointer-events: none;
-    width: max-content; max-width: calc(100vw - 32px); margin: 0; background: rgba(14,16,21,.82);
+    width: max-content; max-width: calc(100vw - 32px); margin: 0; background: rgba(9,23,37,.82);
     opacity: 0; transition: opacity .3s; }
   #countKeys.on { opacity: 1; }
   /* a game shows only what the game needs: its panel and the map */
   body.gaming #stats,
   body.gaming #place { display: none; }
   body.gaming #game { top: 12px; }
+  /* solid in a game, so the speed lines don't show through the clock and the map either */
+  body.gaming #game, body.gaming #mapwrap { background: var(--navy); }
   /* touch: joystick on the left half, look on the right, buttons bottom right */
   #touch { position: fixed; inset: 0; z-index: 3; }
   body:not(.touch) #touch { display: none !important; }
@@ -274,11 +291,11 @@
   #touchButtons { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: calc(max(4px, env(safe-area-inset-bottom)) + 30px);
     display: grid; grid-template-columns: repeat(2, 56px); gap: 10px; }
   #touchButtons button { width: 56px; height: 56px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2);
-    background: rgba(14,16,21,.55); color: var(--ui); font-size: 22px; touch-action: none;
+    background: rgba(9,23,37,.55); color: var(--ui); font-size: 22px; touch-action: none;
     -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
   #touchButtons button svg { width: 26px; height: 26px; vertical-align: middle; }
-  #touchButtons button:active { background: rgba(63,191,111,.5); }
+  #touchButtons button:active { background: rgba(189,163,59,.5); }
   body.touch #stats { display: none; }
   body.touch #place, body.touch #maplabel { display: none; }
   body.touch #map { width: 110px; height: 110px; }
@@ -287,21 +304,21 @@
   /* a backdrop blur is redone every frame over a moving 3D scene: too dear for a phone's GPU */
   body.touch .panel, body.touch #touchButtons button {
     backdrop-filter: none; -webkit-backdrop-filter: none; }
-  body.touch .panel { background: rgba(14,16,21,.84); }
-  body.touch #touchButtons button { background: rgba(14,16,21,.7); }
-  body.touch #credits { font-size: 8px; max-width: none; white-space: nowrap; padding: 3px 8px;
+  body.touch .panel { background: rgba(9,23,37,.84); }
+  body.touch #touchButtons button { background: rgba(9,23,37,.7); }
+  body.touch #credits { font-size: 12px; max-width: none; white-space: nowrap; padding: 3px 8px;
     bottom: max(4px, env(safe-area-inset-bottom)); opacity: .75; }
   /* a phone on its side: little height, so the game panel goes compact */
   @media (max-height: 500px) {
-    body.touch #game { width: 270px; padding: 5px 9px; font-size: 10.5px; line-height: 1.35; }
+    body.touch #game { width: 270px; padding: 5px 9px; font-size: 12px; line-height: 1.35; }
     body.touch #gTime { font-size: 17px; }
     body.touch #gPoints { font-size: 19px; }
-    body.touch #gScore b { font-size: 12px; }
-    body.touch #gGoal { font-size: 9.5px; }
+    body.touch #gScore b { font-size: 14px; }
+    body.touch #gGoal { font-size: 12px; }
     body.touch #map { width: 88px; height: 88px; }
     #pops { top: 34%; }
     .pop.big { font-size: 24px; }
-    #banner { top: 22%; font-size: 13px; }
+    #banner { top: 22%; font-size: 14px; }
   }
   @media (max-width: 640px) {
     #stats { display: none; }
@@ -310,16 +327,17 @@
     .pop.big { font-size: 27px; }
     .pop.record { font-size: 22px; }
   }
-  #boot h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: .16em; font-weight: 700; overflow-wrap: anywhere; }
+  /* as the Weihnachtsmarkt-Finder's title: Clan Bold, 24 px, as written, and its star */
+  #boot h1 { font-size: 24px; margin: 0 0 6px; font-weight: 700; overflow-wrap: anywhere; }
+  #boot h1 img { display: inline-block; width: 40px; height: auto; margin-left: 16px; vertical-align: -6px; }
   #boot h2 { font-size: 14px; margin: 0 0 26px; color: var(--dim); font-weight: 400; }
   #bar { height: 3px; background: rgba(29,35,48,.12); border-radius: 2px; overflow: hidden; }
   #bar div { height: 100%; width: 0%; background: var(--accent); transition: width .18s ease; }
-  #bootmsg { font-size: 11px; color: var(--dim); margin-top: 12px; min-height: 1.4em; }
+  #bootmsg { font-size: 12px; color: var(--dim); margin-top: 12px; min-height: 1.4em; }
   /* between picking a game and its countdown (loading.ts): covers the city
      until the start has streamed in, in the game's own colours */
   #gameLoading { position: fixed; inset: 0; z-index: 21; display: none; place-items: center;
     overflow-x: hidden; overflow-y: auto; text-align: center; padding: 16px;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     background: radial-gradient(110% 80% at 50% 8%, var(--gl-glow) 0%, var(--gl-base) 72%); }
   #gameLoading.on { display: grid; }
   #gameLoading .card { position: relative; max-width: 480px; }
@@ -330,13 +348,13 @@
   @media (max-height: 660px) { #glArt { height: 120px; } }
   #glBack { display: block; margin: 18px auto 0; padding: 10px 22px; border: 1px solid rgba(255,255,255,.22);
     border-radius: 8px; background: rgba(255,255,255,.08); cursor: pointer; color: #fff;
-    font: 14px system-ui, sans-serif; transition: background .15s, border-color .15s; }
+    font: inherit; font-size: 14px; transition: background .15s, border-color .15s; }
   #glBack:hover, #glBack:focus-visible { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.4); outline: none; }
   #glTrack { width: min(320px, 80vw); height: 6px; margin: 0 auto; border-radius: 99px;
     background: rgba(255,255,255,.12); overflow: hidden; }
   #glBar { height: 100%; width: 0; border-radius: inherit; background: var(--gl-accent);
     box-shadow: 0 0 14px var(--gl-accent); transition: width .35s ease-out; }
-  #glLine { margin-top: 12px; min-height: 1.4em; font-size: 13px; color: var(--gl-accent); opacity: 0; }
+  #glLine { margin-top: 12px; min-height: 1.4em; font-size: 14px; color: var(--gl-accent); opacity: 0; }
   #glLine.in { animation: glIn .4s ease-out forwards; }
   @keyframes glIn { from { opacity: 0; transform: translateY(4px); } to { opacity: .95; transform: none; } }
   @media (prefers-reduced-motion: reduce) {
@@ -346,13 +364,13 @@
     background: rgba(10,12,17,.72); }
   #pause.on { display: grid; }
   #pause .inner { text-align: center; padding: 22px 26px; max-width: calc(100vw - 32px);
-    background: rgba(14,16,21,.92); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; }
+    background: rgba(9,23,37,.92); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; }
   #pause h3 { margin: 0 0 6px; font-size: 24px; letter-spacing: .12em; font-weight: 600; }
-  #pause p { margin: 4px 0; font-size: 12px; color: #c9c6bf; }
+  #pause p { margin: 4px 0; font-size: 14px; color: #c5d1df; }
   #pause .rb { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
-  #pause .rb button { padding: 12px 22px; font-size: 13px; }
+  #pause .rb button { padding: 12px 22px; font-size: 14px; }
   #hint { position: fixed; left: 50%; bottom: 26%; transform: translateX(-50%); z-index: 5;
-    font-size: 12px; letter-spacing: .06em; background: rgba(14,16,21,.8); padding: 8px 16px;
+    font-size: 14px; letter-spacing: .06em; background: rgba(9,23,37,.8); padding: 8px 16px;
     border-radius: 6px; border: 1px solid rgba(255,255,255,.1); opacity: 0; transition: opacity .25s; }
   #hint.on { opacity: 1; }
 </style>
@@ -380,7 +398,7 @@
 <div id="boot"><div class="inner">
   <div id="bootArt"></div>
   <div id="ground">
-  <h1>BERLINER WEIHNACHTSMARKT-SAUSE</h1><h2 data-i18n-html="boot.sub">basierend auf Berlins offenen Weihnachtsmarktdaten</h2>
+  <h1><span data-i18n="page.title">Berliner Weihnachtsmarkt-Sause</span><img src="favicon.png" alt=""></h1><h2 data-i18n-html="boot.sub">basierend auf Berlins offenen Weihnachtsmarktdaten</h2>
   <div id="loading">
     <div id="bar"><div></div></div>
     <div id="bootmsg">starte…</div>
@@ -391,9 +409,10 @@
     <div id="mainBtns">
       <button id="playBtn" data-i18n="menu.play">Start</button>
       <button id="scoresBtn" data-i18n="scores.title">Bestenliste</button>
-      <button id="settingsBtn" data-i18n="menu.settings">Einstellungen</button>
       <a id="finderBtn" href="https://weihnachtsmaerkte.odis-berlin.de/?lang=de" target="_blank" rel="noopener"
-        data-i18n="menu.finder">Zum Weihnachtsmarkt-Finder</a>
+        ><span data-i18n="menu.finder">Zum Weihnachtsmarkt-Finder</span><svg viewBox="0 0 24 24" width="16" height="16"
+        fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="17" y1="7" x2="7" y2="17"/><polyline points="8 7 17 7 17 16"/></svg></a>
     </div>
     <div id="menuFoot">
       <p id="introData" data-i18n-html="menu.openData"></p>
@@ -415,7 +434,18 @@
   </div>
 </div></div>
 <div id="board" class="modal"></div>
-<div id="settings" class="modal"></div>
+<!-- language, snow and music, as the Weihnachtsmarkt-Finder's round buttons: top right, over the menu and the pause screen -->
+<nav id="corner">
+  <button id="langBtn" type="button"></button>
+  <button id="snowBtn" type="button"><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor" aria-hidden="true">
+    <path d="M8 16a.5.5 0 0 1-.5-.5v-1.293l-.646.647a.5.5 0 0 1-.707-.708L7.5 12.793V8.866l-3.4 1.963-.496 1.85a.5.5 0 1 1-.966-.26l.237-.882-1.12.646a.5.5 0 0 1-.5-.866l1.12-.646-.884-.237a.5.5 0 1 1 .26-.966l1.848.495L7 8 3.6 6.037l-1.85.495a.5.5 0 0 1-.258-.966l.883-.237-1.12-.646a.5.5 0 1 1 .5-.866l1.12.646-.237-.883a.5.5 0 1 1 .966-.258l.495 1.849L7.5 7.134V3.207L6.147 1.854a.5.5 0 1 1 .707-.708l.646.647V.5a.5.5 0 1 1 1 0v1.293l.647-.647a.5.5 0 1 1 .707.708L8.5 3.207v3.927l3.4-1.963.496-1.85a.5.5 0 1 1 .966.26l-.236.882 1.12-.646a.5.5 0 0 1 .5.866l-1.12.646.883.237a.5.5 0 1 1-.26.966l-1.848-.495L9 8l3.4 1.963 1.849-.495a.5.5 0 0 1 .259.966l-.883.237 1.12.646a.5.5 0 0 1-.5.866l-1.12-.646.236.883a.5.5 0 1 1-.966.258l-.495-1.849-3.4-1.963v3.927l1.353 1.353a.5.5 0 0 1-.707.708l-.647-.647V15.5a.5.5 0 0 1-.5.5z"/>
+  </svg></button>
+  <button id="musicBtn" type="button"><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor" aria-hidden="true">
+    <path d="M6 13c0 1.105-1.12 2-2.5 2S1 14.105 1 13c0-1.104 1.12-2 2.5-2s2.5.896 2.5 2zm9-2c0 1.105-1.12 2-2.5 2s-2.5-.895-2.5-2 1.12-2 2.5-2 2.5.895 2.5 2z"/>
+    <path fill-rule="evenodd" d="M14 11V2h1v9h-1zM6 3v10H5V3h1z"/>
+    <path d="M5 2.905a1 1 0 0 1 .9-.995l8-.8a1 1 0 0 1 1.1.995V3L5 4V2.905z"/>
+  </svg></button>
+</nav>
 <div id="gameLoading"><div class="card">
   <div id="glArt"></div>
   <div id="glTrack"><div id="glBar"></div></div>
@@ -427,12 +457,17 @@
   <p id="pauseInfo"></p>
   <div class="rb">
     <button id="pauseResume" data-i18n="pause.resume">Weiter</button>
-    <button id="pauseSettings" class="alt" data-i18n="menu.settings">Einstellungen</button>
     <button id="pauseRestart" class="alt" data-i18n="pause.restart">Neu starten</button>
     <button id="pauseExit" class="alt" data-i18n="pause.exit">Spiel beenden</button>
   </div>
 </div></div>
 <div id="rush"></div>
+<!-- a sight's seconds back (games.ts): a stopwatch whose hand turns back -->
+<div id="watch"><svg viewBox="0 0 64 72" aria-hidden="true">
+  <rect x="27" y="2" width="10" height="7" rx="2"/><line x1="49" y1="17" x2="54" y2="12"/>
+  <circle cx="32" cy="42" r="24"/><line class="hand" x1="32" y1="42" x2="32" y2="24"/>
+  <circle cx="32" cy="42" r="2.5" class="hub"/>
+</svg><div id="watchText"></div></div>
 <div id="flash"></div>
 <div id="pops"></div>
 <div id="banner"></div>

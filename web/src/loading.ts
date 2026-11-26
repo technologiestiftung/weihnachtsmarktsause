@@ -18,7 +18,8 @@ interface Theme {
 }
 
 const THEMES: Record<string, Theme> = {
-  markets: { glow: '#27406e', base: '#070b18', accent: '#3fbf6f' },
+  // the Weihnachtsmarktkarte's purple night and gold
+  markets: { glow: '#3a3b68', base: '#17182e', accent: '#BDA33B' },
 };
 
 export class GameLoader {
