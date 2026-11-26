@@ -82,17 +82,21 @@
   #mainBtns #finderBtn { display: block; text-decoration: none; }
   #mainBtns #playBtn:hover, #mainBtns #playBtn:focus-visible { background: #22914f; }
   /* who made it, and the data credits */
-  #logos { display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; gap: 14px 32px;
-    margin: 32px auto 0; }
+  #introData { font-size: 11px; margin: 32px auto 0; max-width: 60ch; }
+  #introData a { color: var(--accent-ink); pointer-events: auto; }
+  #logos { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 6px 32px; margin: 14px auto 0; }
   #logos a { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--dim);
     font-size: 9.5px; text-decoration: none; pointer-events: auto; }
-  /* the labels on one line, each logo centred in the space under its label */
-  #logos img { display: block; height: 36px; width: auto; margin: auto 0; }
-  #logos a:first-child img { height: 30px; }
-  #logos a:last-child img { height: 44px; }
-  #menuCredits, #menuContact { font-size: 9px; color: var(--dim); margin: 10px auto 0; max-width: 60ch; line-height: 1.5; }
+  #logos img { display: block; height: 30px; width: auto; }
+  #menuCredits, #menuContact, #logosNote { font-size: 9px; color: var(--dim); margin: 10px auto 0; max-width: 60ch; line-height: 1.5; }
   #menuContact { margin-top: 6px; }
-  #boot h2 a, #menuCredits a, #menuContact a { color: inherit; pointer-events: auto; }
+  #logosNote { flex-basis: 100%; margin-top: 0; }
+  #boot h2 a, #menuCredits a, #menuContact a, #logosNote a { color: inherit; pointer-events: auto; }
+  /* imprint and privacy: small and quiet, under the menu */
+  #legal { display: none; justify-content: center; gap: 14px; margin-top: 10px; font-size: 9.5px; }
+  #boot.ready #legal { display: flex; }
+  #legal a { color: var(--dim); text-decoration: none; pointer-events: auto; }
+  #legal a:hover, #legal a:focus-visible { text-decoration: underline; }
   #result { display: none; margin: 0 auto 18px; max-width: 520px; }
   /* what the game is about; a result takes its place */
   #intro { max-width: 46ch; margin: 0 auto 20px; font-size: 13.5px; line-height: 1.55; color: #3d4452; }
@@ -388,17 +392,23 @@
       <a id="finderBtn" href="https://weihnachtsmaerkte.odis-berlin.de/?lang=de" target="_blank" rel="noopener"
         data-i18n="menu.finder">Zum Weihnachtsmarkt-Finder</a>
     </div>
-    <div id="logos">
-      <a href="https://odis-berlin.de" target="_blank" rel="noopener"><span data-i18n="menu.madeBy">Umgesetzt von</span>
-        <img src="https://logos.citylab-berlin.org/logo-odis-berlin-coloured.svg" alt="ODIS"></a>
-      <a href="https://www.technologiestiftung-berlin.de/" target="_blank" rel="noopener"><span data-i18n="menu.projectBy">Ein Projekt der</span>
-        <img src="https://logos.citylab-berlin.org/logo-technologiestiftung-berlin-de.svg" alt="Technologiestiftung Berlin"></a>
-      <a href="https://www.berlin.de/rbmskzl/" target="_blank" rel="noopener"><span data-i18n="menu.supportedBy">Gefördert durch</span>
-        <img src="https://logos.citylab-berlin.org/logo-berlin-senatskanzelei-de.svg" alt="Senatskanzlei Berlin"></a>
+    <div id="menuFoot">
+      <p id="introData" data-i18n-html="menu.openData"></p>
+      <div id="menuCredits"></div>
+      <div id="logos">
+        <a href="https://odis-berlin.de" target="_blank" rel="noopener"><span data-i18n="menu.madeBy">Umgesetzt von</span>
+          <img src="https://logos.citylab-berlin.org/logo-odis-berlin-coloured.svg" alt="ODIS"></a>
+        <a href="https://www.technologiestiftung-berlin.de/" target="_blank" rel="noopener"><span data-i18n="menu.projectBy">Ein Projekt der</span>
+          <img src="https://logos.citylab-berlin.org/logo-technologiestiftung-berlin-de.svg" alt="Technologiestiftung Berlin"></a>
+        <div id="logosNote" data-i18n-html="menu.odisAbout"></div>
+      </div>
+      <div id="menuContact" data-i18n-html="menu.contact"></div>
     </div>
-    <div id="menuCredits"></div>
-    <div id="menuContact" data-i18n-html="menu.contact"></div>
   </div>
+  <nav id="legal">
+    <a href="https://www.technologiestiftung-berlin.de/impressum" target="_blank" rel="noopener" data-i18n="menu.imprint">Impressum</a>
+    <a href="https://www.technologiestiftung-berlin.de/datenschutz" target="_blank" rel="noopener" data-i18n="menu.privacy">Datenschutz</a>
+  </nav>
   </div>
 </div></div>
 <div id="board" class="modal"></div>

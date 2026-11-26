@@ -20,8 +20,8 @@ const de = {
   'boot.sky': 'Himmelslicht',
   'boot.ready': 'bereit',
   'boot.failed': 'Laden fehlgeschlagen: {e}',
-  'credits': 'Gebäude, Straßen © OpenStreetMap-Mitwirkende (ODbL), modelliert mit OSM2World · '
-    + 'Gelände: ALS Berlin · Bäume: Baumbestand Berlin · Bezirke: Geoportal Berlin (dl-de/zero-2.0)',
+  'credits': 'Gebäude, Straßen: © OpenStreetMap-Mitwirkende (ODbL), modelliert mit OSM2World · '
+    + 'Gelände: Airborne Laserscanning (SenSBW) · Bäume: Baumbestand Berlin (SenMVKU) · Bezirke: ALKIS Berlin Bezirke (SenSBW) · Geodaten Berlin unter dl-de/zero-2.0',
   'credits.short': '© OpenStreetMap-Mitwirkende (ODbL) · Geodaten Berlin (dl-de/zero-2.0)',
   'hud.fps': 'fps', 'hud.draws': 'Draws', 'hud.tris': 'Mio. Dreiecke',
   'hud.buildings': 'Gebäude', 'hud.trees': 'Bäume', 'hud.tiles': 'Kacheln',
@@ -44,7 +44,11 @@ const de = {
   'menu.sources': 'Datenquellen: <a href="https://daten.berlin.de/datensaetze/simple_search_wwwberlindesenwebservicemaerktefesteweihnachtsmaerkte" target="_blank" rel="noopener">{markets}</a> · {rest}',
   'menu.contact': 'Den Quellcode der Weihnachtsmarkt-Sause findest du auf <a href="https://github.com/technologiestiftung/weihnachtsmarktsause" target="_blank" rel="noopener">GitHub</a>.<br>'
     + 'Eine Frage oder Feedback? Schreib uns an <a href="mailto:odis@ts.berlin">odis@ts.berlin</a>',
-  'menu.madeBy': 'Umgesetzt von', 'menu.projectBy': 'Ein Projekt der', 'menu.supportedBy': 'Gefördert durch',
+  'menu.madeBy': 'Umgesetzt von', 'menu.projectBy': 'Ein Projekt der',
+  'menu.openData': 'Dieses Spiel basiert komplett auf Berlins <a href="https://daten.berlin.de" target="_blank" rel="noopener">Open Data</a>.',
+  'menu.odisAbout': 'Die Open Data Informationsstelle ist ein Projekt der Technologiestiftung Berlin, '
+    + 'gefördert durch die Senatskanzlei Berlin.',
+  'menu.imprint': 'Impressum', 'menu.privacy': 'Datenschutz',
   'settings.title': 'Einstellungen',
   'settings.general': 'Allgemein', 'settings.controls': 'Steuerung',
   'settings.lang': 'Sprache', 'settings.sound': 'Ton',
@@ -121,8 +125,8 @@ const en: Record<Key, string> = {
   'boot.sky': 'sky lighting',
   'boot.ready': 'ready',
   'boot.failed': 'failed to load: {e}',
-  'credits': 'Buildings, streets © OpenStreetMap contributors (ODbL), modelled by OSM2World · '
-    + 'terrain: ALS Berlin · trees: Baumbestand Berlin · districts: Geoportal Berlin (dl-de/zero-2.0)',
+  'credits': 'buildings, streets: © OpenStreetMap contributors (ODbL), modelled by OSM2World · '
+    + 'terrain: Airborne Laserscanning (SenSBW) · trees: Baumbestand Berlin (SenMVKU) · districts: ALKIS Berlin Bezirke (SenSBW) · Berlin geodata under dl-de/zero-2.0',
   'credits.short': '© OpenStreetMap contributors (ODbL) · Berlin geodata (dl-de/zero-2.0)',
   'hud.fps': 'fps', 'hud.draws': 'draws', 'hud.tris': 'M tris',
   'hud.buildings': 'buildings', 'hud.trees': 'trees', 'hud.tiles': 'tiles',
@@ -145,7 +149,11 @@ const en: Record<Key, string> = {
   'menu.sources': 'Data sources: <a href="https://daten.berlin.de/datensaetze/simple_search_wwwberlindesenwebservicemaerktefesteweihnachtsmaerkte" target="_blank" rel="noopener">{markets}</a> · {rest}',
   'menu.contact': 'The source code of the Weihnachtsmarkt-Sause is on <a href="https://github.com/technologiestiftung/weihnachtsmarktsause" target="_blank" rel="noopener">GitHub</a>.<br>'
     + 'A question or feedback? Write to us at <a href="mailto:odis@ts.berlin">odis@ts.berlin</a>',
-  'menu.madeBy': 'Made by', 'menu.projectBy': 'A project by', 'menu.supportedBy': 'Supported by',
+  'menu.madeBy': 'Made by', 'menu.projectBy': 'A project by',
+  'menu.openData': 'This game is built entirely on Berlin’s <a href="https://daten.berlin.de" target="_blank" rel="noopener">open data</a>.',
+  'menu.odisAbout': 'The Open Data Informationsstelle is a project of the Technologiestiftung Berlin, '
+    + 'funded by the Senatskanzlei Berlin.',
+  'menu.imprint': 'Imprint', 'menu.privacy': 'Privacy',
   'settings.title': 'Settings',
   'settings.general': 'General', 'settings.controls': 'Controls',
   'settings.lang': 'Language', 'settings.sound': 'Sound',
