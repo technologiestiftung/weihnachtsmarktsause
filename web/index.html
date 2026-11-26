@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>Weihnachtsmarkt-Sause</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/favicon.png">
 <style>
   :root { --ui: #e8e6e1; --dim: #9a978f; --accent: #3fbf6f; }
   * { box-sizing: border-box; }
@@ -90,7 +92,8 @@
   #logos img { display: block; height: 30px; width: auto; }
   #menuCredits, #menuContact, #logosNote { font-size: 9px; color: var(--dim); margin: 10px auto 0; max-width: 60ch; line-height: 1.5; }
   #menuContact { margin-top: 6px; }
-  #logosNote { flex-basis: 100%; margin-top: 0; }
+  /* a line of its own under the logos, which then centre on theirs */
+  #logosNote { flex-basis: 100%; max-width: none; margin-top: 0; }
   #boot h2 a, #menuCredits a, #menuContact a, #logosNote a { color: inherit; pointer-events: auto; }
   /* imprint and privacy: small and quiet, under the menu */
   #legal { display: none; justify-content: center; gap: 14px; margin-top: 10px; font-size: 9.5px; }
