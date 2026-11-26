@@ -5,7 +5,7 @@ import { setUploader } from './frames';
 import { t } from './i18n';
 import { closeOnUpload } from './memory';
 import { LOW } from './quality';
-import { Tile, type GroundKind, type SharedGround } from './tile';
+import { CACHE, Tile, type GroundKind, type SharedGround } from './tile';
 
 /** All of Berlin, served from object storage at VITE_TILE_BASE (see .env.example). */
 const BERLIN = ((import.meta.env.VITE_TILE_BASE as string | undefined) ?? '')
@@ -86,7 +86,7 @@ export class World {
   }
 
   async init(onProgress: (msg: string) => void, renderer: THREE.WebGLRenderer): Promise<this> {
-    const m = await readJson<Manifest>(BERLIN + 'world.json');
+    const m = await readJson<Manifest>(BERLIN + `world.json?c=${CACHE}`);
     if (!m?.tiles || !Object.keys(m.tiles).length) throw new Error(`${BERLIN}world.json missing`);
     this.manifest = m;
     const man = this.manifest;

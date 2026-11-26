@@ -8,6 +8,12 @@ import { WaterField, waterMaterial, waterMesh } from './water';
 import { breathe, upload } from './frames';
 import { freeOnUpload, shareMaterialTextures, sharedTextures, shrinkTextures } from './memory';
 import type { CoverJob, Raster } from './mapworker';
+
+/** Part of every URL into the bucket. Raise it when files there change in place
+ *  (new headers, same bytes): a browser may otherwise keep a broken copy, as
+ *  the server answers "not modified" without the new headers. 2: 26 Nov 2026,
+ *  gzip files given their Content-Encoding. */
+export const CACHE = 2;
 import { LOW } from './quality';
 import { TerrainField, parseTrees, type Tree } from './tiles';
 import { bridgeMaterial, crownMaterial, litWindows, terrainMaterial, trunkMaterial,
@@ -130,7 +136,7 @@ export class Tile {
   /* --- loading ----------------------------------------------------------- */
 
   private url(file: string): string {
-    return this.base + file + (this.version ? `?v=${this.version}` : '');
+    return this.base + file + `?c=${CACHE}` + (this.version ? `&v=${this.version}` : '');
   }
 
   /** Downloads started and not yet used, by file: see prefetch(). */
