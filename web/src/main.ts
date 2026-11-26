@@ -8,7 +8,7 @@ import { HUD } from './hud';
 import { SightLayer } from './sights';
 import { skyMaterial } from './materials';
 import { FOG_DAY, FOG_NIGHT, SUN_DIR, installAtmosphere } from './atmosphere';
-import { makeGame, startPoint, type Game } from './games';
+import { MODE_INFO, makeGame, modeText, startPoint, type Game } from './games';
 import { GameLoader } from './loading';
 import { bestCount } from './scores';
 import { Menu, type Choice } from './menu';
@@ -183,11 +183,16 @@ const [sx, sz] = startPoint(hud.overview, world) ?? [world.spawnPoint.x, world.s
 player.pos.set(sx, 0, sz);
 player.yaw = Math.PI * 0.25;
 const touchDevice = isTouchDevice();
-if (touchDevice) {
-  // a phone has no room for the full credits; the licences still show
-  document.getElementById('credits')!.dataset.i18n = 'credits.short';
-  applyStatic();
-}
+// The data sources under the game, word for word as on the start page
+// (menu.sources) but without its link to the market data. A phone has no
+// room for them all; the licences still show.
+const creditsEl = document.getElementById('credits')!;
+const drawCredits = () => {
+  creditsEl.textContent = touchDevice ? t('credits.short')
+    : t('credits.sources', { markets: modeText(MODE_INFO[0].id, 'source'), rest: t('credits') });
+};
+onLang(drawCredits);
+drawCredits();
 
 say(t('boot.ready'), 1);
 

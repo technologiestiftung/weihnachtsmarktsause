@@ -277,7 +277,7 @@
   #count.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   /* how to fly, while the countdown runs and nothing can be steered yet */
   #countKeys { position: fixed; left: 50%; top: 61%; transform: translateX(-50%); z-index: 7; pointer-events: none;
-    width: max-content; max-width: calc(100vw - 32px); margin: 0; background: rgba(9,23,37,.82);
+    width: max-content; max-width: calc(100vw - 32px); margin: 0; background: var(--navy);
     opacity: 0; transition: opacity .3s; }
   #countKeys.on { opacity: 1; }
   /* a game shows only what the game needs: its panel and the map */
@@ -285,7 +285,7 @@
   body.gaming #place { display: none; }
   body.gaming #game { top: 12px; }
   /* solid in a game, so the speed lines don't show through the clock and the map either */
-  body.gaming #game, body.gaming #mapwrap { background: var(--navy); }
+  body.gaming #game, body.gaming #mapwrap, #credits { background: var(--navy); }
   /* touch: joystick on the left half, look on the right, buttons bottom right */
   #touch { position: fixed; inset: 0; z-index: 3; }
   body:not(.touch) #touch { display: none !important; }
@@ -310,7 +310,7 @@
   body.touch .panel { background: rgba(9,23,37,.84); }
   body.touch #touchButtons button { background: rgba(9,23,37,.7); }
   body.touch #credits { font-size: 12px; max-width: none; white-space: nowrap; padding: 3px 8px;
-    bottom: max(4px, env(safe-area-inset-bottom)); opacity: .75; }
+    bottom: max(4px, env(safe-area-inset-bottom)); }
   /* a phone on its side: little height, so the game panel goes compact */
   @media (max-height: 500px) {
     body.touch #game { width: 270px; padding: 5px 9px; font-size: 12px; line-height: 1.35; }
@@ -373,7 +373,7 @@
   #pause .rb { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
   #pause .rb button { padding: 12px 22px; font-size: 14px; }
   #hint { position: fixed; left: 50%; bottom: 26%; transform: translateX(-50%); z-index: 5;
-    font-size: 14px; letter-spacing: .06em; background: rgba(9,23,37,.8); padding: 8px 16px;
+    font-size: 14px; letter-spacing: .06em; background: var(--navy); padding: 8px 16px;
     border-radius: 6px; border: 1px solid rgba(255,255,255,.1); opacity: 0; transition: opacity .25s; }
   #hint.on { opacity: 1; }
 </style>
@@ -390,7 +390,7 @@
     <div id="gScore"></div>
     <div id="gGoal"></div>
   </div>
-  <div class="panel" id="credits" data-i18n="credits"></div>
+  <div class="panel" id="credits"></div>
 </div>
 <div id="touch" style="display:none">
   <div id="touchLook"></div>

@@ -41,6 +41,7 @@ const de = {
   'menu.snowOn': 'Schnee einschalten', 'menu.snowOff': 'Schnee ausschalten',
   'menu.finder': 'Zum Weihnachtsmarkt-Finder',
   'menu.finderTitle': 'Öffnet den Weihnachtsmarkt-Finder in einem neuen Tab',
+  'credits.sources': 'Datenquellen: {markets} · {rest}',
   'menu.sources': 'Datenquellen: <a href="https://daten.berlin.de/datensaetze/simple_search_wwwberlindesenwebservicemaerktefesteweihnachtsmaerkte" target="_blank" rel="noopener">{markets}</a> · {rest}',
   'menu.contact': 'Den Quellcode der Weihnachtsmarkt-Sause findest du auf <a href="https://github.com/technologiestiftung/weihnachtsmarktsause" target="_blank" rel="noopener">GitHub</a>.<br>'
     + 'Eine Frage oder Feedback? Schreib uns an <a href="mailto:odis@ts.berlin">odis@ts.berlin</a>',
@@ -133,6 +134,7 @@ const en: Record<Key, string> = {
   'menu.snowOn': 'Turn snow on', 'menu.snowOff': 'Turn snow off',
   'menu.finder': 'To the Christmas Market Finder',
   'menu.finderTitle': 'Opens the Christmas Market Finder in a new tab',
+  'credits.sources': 'Data sources: {markets} · {rest}',
   'menu.sources': 'Data sources: <a href="https://daten.berlin.de/datensaetze/simple_search_wwwberlindesenwebservicemaerktefesteweihnachtsmaerkte" target="_blank" rel="noopener">{markets}</a> · {rest}',
   'menu.contact': 'The source code of the Weihnachtsmarkt-Sause is on <a href="https://github.com/technologiestiftung/weihnachtsmarktsause" target="_blank" rel="noopener">GitHub</a>.<br>'
     + 'A question or feedback? Write to us at <a href="mailto:odis@ts.berlin">odis@ts.berlin</a>',
