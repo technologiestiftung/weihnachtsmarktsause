@@ -103,7 +103,8 @@
   #result { display: none; margin: 0 auto 18px; max-width: 520px; }
   /* what the game is about; a result takes its place */
   #intro { max-width: 46ch; margin: 0 auto 20px; font-size: 13.5px; line-height: 1.55; color: #3d4452; }
-  #result.on + #intro { display: none; }
+  /* a result takes the intro's place; a note (a game left early) sits above it */
+  #result.on:not(.note) + #intro { display: none; }
   #result.on { display: block; }
   #result h3 { font-size: 22px; margin: 0 0 6px; letter-spacing: .06em; font-weight: 600; }
   #result .big { font-size: 46px; color: var(--accent-ink); font-weight: 600; line-height: 1.1; }
@@ -187,18 +188,18 @@
   #settings input.switch:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
   #settings .tabbody > p { font-size: 11.5px; line-height: 1.55; }
   #settings .tabbody > p.dim { font-size: 10.5px; margin-top: 12px; }
-  /* the controls, as on the loading screen before */
-  #settings .keys { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; align-items: center;
+  /* the controls: in the settings and under the countdown */
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; align-items: center;
     margin: 10px 0 4px; padding: 12px 14px; text-align: left; font-size: 12px; color: #dedbd4;
     background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; }
-  #settings .keys .k { justify-self: end; white-space: nowrap; }
-  #settings .keys kbd { display: inline-block; min-width: 24px; margin-left: 4px; padding: 3px 7px;
+  .keys .k { justify-self: end; white-space: nowrap; }
+  .keys kbd { display: inline-block; min-width: 24px; margin-left: 4px; padding: 3px 7px;
     border-radius: 6px; border: 1px solid rgba(255,255,255,.2); border-bottom-width: 3px;
     background: rgba(255,255,255,.1); color: #fff; font: 600 11px system-ui, sans-serif; text-align: center; }
-  #settings .keys svg.mouse { width: 17px; height: 25px; margin-left: 4px; vertical-align: middle; color: #fff; }
-  #settings .keys .pairs { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; }
-  #settings .keys .pairs kbd, #settings .keys .pairs svg.mouse { margin: 0 6px 0 0; }
-  #settings .keys .tip { grid-column: 1 / -1; margin-top: 4px; color: var(--accent); }
+  .keys svg.mouse { width: 17px; height: 25px; margin-left: 4px; vertical-align: middle; color: #fff; }
+  .keys .pairs { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; }
+  .keys .pairs kbd, .keys .pairs svg.mouse { margin: 0 6px 0 0; }
+  .keys .tip { grid-column: 1 / -1; margin-top: 4px; color: var(--accent); }
   #settings kbd { font-family: inherit; }
   #game { top: 62px; left: 50%; transform: translateX(-50%); min-width: 260px; max-width: calc(100vw - 32px);
     text-align: center; display: none; font-size: 12px; }
@@ -254,6 +255,11 @@
     pointer-events: none; font-size: 110px; font-weight: 700; color: var(--accent); opacity: 0;
     text-shadow: 0 4px 24px rgba(0,0,0,.6); transition: opacity .2s, transform .3s; }
   #count.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  /* how to fly, while the countdown runs and nothing can be steered yet */
+  #countKeys { position: fixed; left: 50%; top: 61%; transform: translateX(-50%); z-index: 7; pointer-events: none;
+    width: max-content; max-width: calc(100vw - 32px); margin: 0; background: rgba(14,16,21,.82);
+    opacity: 0; transition: opacity .3s; }
+  #countKeys.on { opacity: 1; }
   /* a game shows only what the game needs: its panel and the map */
   body.gaming #stats,
   body.gaming #place { display: none; }
@@ -261,8 +267,8 @@
   /* touch: joystick on the left half, look on the right, buttons bottom right */
   #touch { position: fixed; inset: 0; z-index: 3; }
   body:not(.touch) #touch { display: none !important; }
-  #touchMove { position: absolute; left: 0; bottom: 0; width: 50%; height: 70%; touch-action: none; }
-  #touchLook { position: absolute; right: 0; top: 0; width: 50%; height: 100%; touch-action: none; }
+  /* a drag anywhere steers, as the mouse does */
+  #touchLook { position: absolute; inset: 0; touch-action: none; }
   #touchButtons { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: calc(max(4px, env(safe-area-inset-bottom)) + 30px);
     display: grid; grid-template-columns: repeat(2, 56px); gap: 10px; }
   #touchButtons button { width: 56px; height: 56px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2);
@@ -364,7 +370,6 @@
   <div class="panel" id="credits" data-i18n="credits"></div>
 </div>
 <div id="touch" style="display:none">
-  <div id="touchMove"></div>
   <div id="touchLook"></div>
   <div id="touchButtons"></div>
 </div>
@@ -431,6 +436,7 @@
 <div id="pops"></div>
 <div id="banner"></div>
 <div id="count"></div>
+<div id="countKeys" class="keys"></div>
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

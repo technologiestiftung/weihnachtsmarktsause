@@ -58,12 +58,13 @@ export class Player {
   }
 
   /**
-   * The sleigh flies like a plane: always at full boost, S holds it back,
-   * A/D (or Q/E, or the mouse) bank it round and the view's pitch is its
-   * climb. It skims over the ground rather than landing.
+   * The sleigh flies like a plane: always at full boost, with no brake, so
+   * the mouse or a finger is all it takes. A/D (or Q/E, or the mouse) bank
+   * it round and the view's pitch is its climb. It skims over the ground
+   * rather than landing.
    */
   private updateSleigh(dt: number, keys: Set<string>): void {
-    const want = (keys.has('KeyS') ? SLEIGH_CRUISE : SLEIGH_BOOST) * this.speedScale;
+    const want = SLEIGH_BOOST * this.speedScale;
     this.sleighSpeed += (want - this.sleighSpeed) * Math.min(1, dt * 1.6);
     const steer = (keys.has('KeyA') ? 1 : 0) - (keys.has('KeyD') ? 1 : 0) + this.turnInput(keys);
     this.yaw += Math.max(-1, Math.min(1, steer)) * 1.25 * dt;

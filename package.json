@@ -23,7 +23,6 @@
   "dependencies": {
     "@2toad/profanity": "^3.3.0",
     "naughty-words": "^1.2.0",
-    "nipplejs": "^1.0.4",
     "pg": "^8.23.1",
     "three": "^0.169.0"
   }

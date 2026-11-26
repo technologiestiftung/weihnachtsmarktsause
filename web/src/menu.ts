@@ -48,7 +48,7 @@ export class Menu {
 
   /** Clears the panel above the buttons. */
   private closePanel(): void {
-    this.result.classList.remove('on');
+    this.result.classList.remove('on', 'note');
     this.redraw = null;
   }
 
@@ -113,6 +113,7 @@ export class Menu {
     if (run.ranked) kids.push(this.rankLine(id, r, run));
     this.result.replaceChildren(...kids);
     this.result.classList.add('on');
+    this.result.classList.remove('note');
     this.redraw = () => this.drawResult(id, r, run);
   }
 
@@ -158,10 +159,11 @@ export class Menu {
     return form;
   }
 
-  /** A line over the buttons: a game left before the end, or one that would not start. */
+  /** A line over the buttons: a game left before the end, or one that would not start.
+   *  Unlike a result it leaves the intro in place. */
   showNote(text: () => string): void {
     this.result.replaceChildren(h('p', '', text()));
-    this.result.classList.add('on');
+    this.result.classList.add('on', 'note');
     this.show();
     this.redraw = () => this.showNote(text);
   }

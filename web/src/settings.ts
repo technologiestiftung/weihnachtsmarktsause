@@ -158,7 +158,7 @@ const MOUSE = `<svg class="mouse" viewBox="0 0 16 24" aria-label="🖱" role="im
  * keys is a tip on how to play. On a phone, what the thumbs do instead,
  * with the mode's tips.
  */
-function controls(id: string, touch: boolean): HTMLElement[] {
+export function controls(id: string, touch: boolean): HTMLElement[] {
   const parse = (key: string) => t(key).split('|').map((r) => r.split('=') as [string, string]);
   const own = parse(`load.keys.${id}`);
   const rows = touch

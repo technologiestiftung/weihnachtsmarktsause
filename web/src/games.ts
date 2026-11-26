@@ -4,7 +4,9 @@ import type { Overview } from './overview';
 import type { Player } from './player';
 import { t } from './i18n';
 import { labelTexture, setDistance, type Label } from './labels';
+import { controls } from './settings';
 import { sfx } from './sfx';
+import { isTouchDevice } from './touch';
 import type { World } from './world';
 
 /**
@@ -41,7 +43,7 @@ function duration(s: number): string {
   return s % 60 === 0 && s >= 120 ? t('dur.m', { n: s / 60 }) : t('dur.s', { n: s });
 }
 
-/** A mode's text in the current language: title, blurb, controls, source, unit. */
+/** A mode's text in the current language: title, blurb, source, unit. */
 export function modeText(id: string, what: string, vars: Record<string, string | number> = {}): string {
   return t(`mode.${id}.${what}`, { dur: duration(LIMITS[id] ?? 90), ...vars });
 }
@@ -312,8 +314,8 @@ export class Game {
   /** Seconds a target puts back on the clock, shrinking over a run. */
   private readonly timeBonus = 3;
   /** On top of GAME_PACE: the sleigh is quick already; much faster and the
-   *  city cannot stream in. */
-  private readonly pace = 0.8;
+   *  city cannot stream in, nor can you tell where in Berlin you are. */
+  private readonly pace = 0.65;
   private readonly snow = new Snow();
   /** Beacons over the nearest markets: how many, how far out, how tall and wide. */
   private readonly beaconCount = 10;
@@ -367,7 +369,9 @@ export class Game {
   start(): void {
     this.fov0 = this.host.camera.fov;
     el('game').classList.add('on');
-    this.banner(this.best ? t('game.chase', { n: this.text('unit', { n: this.best }) }) : this.text('controls'), 4);
+    // only the first row, the mouse or the finger: the rest is in the settings
+    el('countKeys').replaceChildren(...controls(this.info.id, isTouchDevice()).slice(0, 2));
+    el('countKeys').classList.add('on');
     this.render();
     this.host.player.setSleigh(true);
     this.host.setNight(1);
@@ -391,6 +395,7 @@ export class Game {
     if (this.fov0) { cam.fov = this.fov0; cam.updateProjectionMatrix(); }
     el('game').classList.remove('on');
     el('count').classList.remove('on');
+    el('countKeys').classList.remove('on');
     el('banner').classList.remove('on');
     css(el('rush'), 'display', 'none');
     el('pops').replaceChildren();
@@ -515,6 +520,7 @@ export class Game {
       if (this.countdown <= 0) {
         this.state = 'play';
         c.classList.remove('on');
+        el('countKeys').classList.remove('on');
       }
     } else if (this.state === 'play') {
       this.snow.update(dt, this.host.camera.position);

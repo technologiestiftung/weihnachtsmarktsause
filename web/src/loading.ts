@@ -7,7 +7,7 @@ import { art } from './loadingart';
  * nobody sees free roam flash by or a half-built street at "go". Each game
  * has its own colours and a small 3D scene in the game's look
  * (loadingart.ts): snow for the markets. Only a bar and a few lines to
- * read while it fills; the controls are in the settings.
+ * read while it fills; the controls come with the countdown (games.ts).
  */
 
 interface Theme {

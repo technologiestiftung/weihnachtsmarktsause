@@ -1,10 +1,6 @@
-import nipplejs from 'nipplejs';
-
 /**
- * Touch controls for phones and tablets: a virtual joystick on the left
- * (nipplejs) to move, a drag anywhere on the right to look, and a few
- * buttons. They drive the game through the same key codes as the keyboard -
- * the joystick holds W/A/S/D, a button presses its key - so the sleigh
+ * Touch controls for phones and tablets: a drag anywhere steers and climbs,
+ * as the mouse does, and a few buttons press their keys - so the sleigh
  * flies the same either way.
  *
  * Shown when the primary pointer is coarse, i.e. a finger. A laptop with a
@@ -15,9 +11,6 @@ export function isTouchDevice(): boolean {
   return matchMedia('(pointer: coarse)').matches;
 }
 
-/** Joystick deflection past which a direction counts as held. */
-const DEAD = 0.3;
-const KNOB = 'rgba(63,191,111,.85)';
 /** Radians per pixel of drag; a thumb travels less than a mouse. */
 const LOOK = 2.4;
 
@@ -27,14 +20,12 @@ interface TouchButton {
 }
 
 export class TouchControls {
-  private readonly held = new Set<string>();
   private readonly root = document.getElementById('touch')!;
 
   /** look(dx, dy) turns the view by pixel deltas, the way the mouse does;
    *  buttons are pressed as key codes. */
   constructor(private readonly look: (dx: number, dy: number) => void, buttons: TouchButton[]) {
     document.body.classList.add('touch');
-    this.joystick();
     this.lookArea();
     const bar = document.getElementById('touchButtons')!;
     for (const b of buttons) {
@@ -58,34 +49,6 @@ export class TouchControls {
     dispatchEvent(new KeyboardEvent(type, { code, bubbles: true }));
   }
 
-  private hold(code: string, on: boolean): void {
-    if (on === this.held.has(code)) return;
-    if (on) this.held.add(code); else this.held.delete(code);
-    this.key(on ? 'keydown' : 'keyup', code);
-  }
-
-  private release(): void {
-    for (const code of [...this.held]) this.hold(code, false);
-  }
-
-  private joystick(): void {
-    const zone = document.getElementById('touchMove')!;
-    const stick = nipplejs.create({
-      zone, mode: 'dynamic', size: 120, threshold: 0.1,
-      color: { front: KNOB, back: 'rgba(255,255,255,.18)' },
-    });
-    stick.on('move', (e) => {
-      const { x, y } = e.data.vector;
-      this.hold('KeyW', y > DEAD);
-      this.hold('KeyS', y < -DEAD);
-      this.hold('KeyD', x > DEAD);
-      this.hold('KeyA', x < -DEAD);
-    });
-    stick.on('end', () => this.release());
-    // a lost touch (an incoming call, the app switcher) must not leave you running
-    addEventListener('blur', () => this.release());
-  }
-
   private lookArea(): void {
     const area = document.getElementById('touchLook')!;
     const last = new Map<number, [number, number]>();
@@ -106,6 +69,5 @@ export class TouchControls {
 
   set visible(on: boolean) {
     this.root.style.display = on ? '' : 'none';
-    if (!on) this.release();
   }
 }
