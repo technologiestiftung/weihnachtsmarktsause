@@ -19,7 +19,6 @@ const de = {
   'boot.textures': 'Bodentexturen',
   'boot.sky': 'Himmelslicht',
   'boot.ready': 'bereit',
-  'boot.failed': 'Laden fehlgeschlagen: {e}',
   'credits': 'Gebäude, Straßen: © OpenStreetMap-Mitwirkende (ODbL), modelliert mit OSM2World · '
     + 'Gelände: Airborne Laserscanning (SenSBW) · Bäume: Baumbestand Berlin (SenMVKU) · Bezirke: ALKIS Berlin Bezirke (SenSBW) · Geodaten Berlin unter dl-de/zero-2.0',
   'credits.short': '© OpenStreetMap-Mitwirkende (ODbL) · Geodaten Berlin (dl-de/zero-2.0)',
@@ -29,6 +28,7 @@ const de = {
   'hint.cam0': 'Verfolgerkamera', 'hint.cam1': 'nah dran', 'hint.cam2': 'Ego-Perspektive',
   'hint.labelsOn': 'Beschriftung an', 'hint.labelsOff': 'Beschriftung aus',
   'load.back': 'Zurück zum Menü',
+  'load.later': 'Der Weihnachtsmann ist noch mit Geschenkepacken beschäftigt. Versuche es später noch einmal!',
   'load.keys.markets': 'S=bremsen|A D=lenken|mouse=lenken, steigen und sinken|Leertaste Strg=steigen, sinken',
   'load.keys.common': 'C=Kamera|Esc=Pause',
   'load.touch.markets': 'links ziehen=lenken, bremsen|rechts wischen=steigen und sinken|⏸=Pause',
@@ -117,7 +117,6 @@ const en: Record<Key, string> = {
   'boot.textures': 'ground textures',
   'boot.sky': 'sky lighting',
   'boot.ready': 'ready',
-  'boot.failed': 'failed to load: {e}',
   'credits': 'buildings, streets: © OpenStreetMap contributors (ODbL), modelled by OSM2World · '
     + 'terrain: Airborne Laserscanning (SenSBW) · trees: Baumbestand Berlin (SenMVKU) · districts: ALKIS Berlin Bezirke (SenSBW) · Berlin geodata under dl-de/zero-2.0',
   'credits.short': '© OpenStreetMap contributors (ODbL) · Berlin geodata (dl-de/zero-2.0)',
@@ -127,6 +126,7 @@ const en: Record<Key, string> = {
   'hint.cam0': 'third person', 'hint.cam1': 'close', 'hint.cam2': 'first person',
   'hint.labelsOn': 'labels on', 'hint.labelsOff': 'labels off',
   'load.back': 'Back to menu',
+  'load.later': 'Santa is still busy wrapping presents. Please try again later!',
   'load.keys.markets': 'S=brake|A D=steer|mouse=steer, climb and dive|Space Ctrl=climb, dive',
   'load.keys.common': 'C=camera|Esc=pause',
   'load.touch.markets': 'drag left=steer, brake|swipe right=climb and dive|⏸=pause',

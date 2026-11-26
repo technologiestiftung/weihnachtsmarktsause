@@ -37,11 +37,41 @@ const say = (m: string, pct?: number) => {
   bootMsg.textContent = m;
   if (pct !== undefined) bar.style.width = `${Math.round(pct * 100)}%`;
 };
-// A failed load would otherwise leave the boot screen on its last message
-// forever, which looks like a hang rather than an error.
-const fail = (err: unknown) => say(t('boot.failed', { e: err instanceof Error ? err.message : String(err) }));
+// A failed load is for the console, not the player: the menu stays as it is,
+// and start says on the loading screen to come back later.
+let worldFailed = false;
+const fail = (err: unknown) => {
+  if (worldLoaded) return;
+  console.error('the world failed to load:', err);
+  worldFailed = true;
+  if (waiting) loader.stuck(t('load.later'));
+};
 window.addEventListener('error', (e) => fail(e.error ?? e.message));
 window.addEventListener('unhandledrejection', (e) => fail(e.reason));
+
+/* --- menu ---------------------------------------------------------------- */
+
+// The menu needs nothing of the city, so it opens at once. Start pressed
+// while the world still loads waits for it on the loading screen.
+let worldLoaded = false;
+/** Start, pressed before the world was there. */
+let waiting: Choice | null = null;
+const settings = new Settings();
+const loader = new GameLoader();
+const menu = new Menu((c) => {
+  if (worldLoaded) return void choose(c);
+  waiting = c;
+  loader.show(c.id);
+  if (worldFailed) loader.stuck(t('load.later'));
+}, settings);
+// backing out of that wait needs no step to finish: straight back to the menu
+loader.onCancel = () => {
+  if (!waiting) return;
+  waiting = null;
+  loader.hide();
+  menu.show();
+};
+menu.ready();
 
 /* --- renderer ------------------------------------------------------------ */
 
@@ -154,13 +184,9 @@ let game: Game | null = null;
 let gameRanked = false;
 let gameChoice: Choice | null = null;
 let starting = false;
-const loader = new GameLoader();
 /** A game on hold: the clock, the rules and the player all wait. */
 let paused = false;
 let pausedAt = 0;
-
-const settings = new Settings();
-const menu = new Menu((c) => void choose(c), settings);
 
 async function choose(c: Choice): Promise<void> {
   keys.clear();
@@ -399,7 +425,12 @@ function fitToWindow(): void {
 addEventListener('resize', fitToWindow);
 fitToWindow();
 
-menu.ready();
+worldLoaded = true;
+if (waiting) {
+  const c = waiting;
+  waiting = null;
+  void choose(c);
+}
 void boot;
 
 /* --- avatar and sleigh --------------------------------------------------- */

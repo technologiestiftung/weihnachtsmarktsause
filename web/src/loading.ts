@@ -31,6 +31,8 @@ export class GameLoader {
   private timer = 0;
   /** The player backed out: whoever is loading should stop at its next step. */
   cancelled = false;
+  /** Told at once when the player backs out. */
+  onCancel: (() => void) | null = null;
 
   constructor() {
     this.back.addEventListener('click', () => this.cancel());
@@ -43,6 +45,7 @@ export class GameLoader {
   /** Back to the menu, now or as soon as the current step is done. */
   private cancel(): void {
     this.cancelled = true;
+    this.onCancel?.();
   }
 
   show(id: string): void {
@@ -71,6 +74,14 @@ export class GameLoader {
     this.el.classList.add('on');
     // after the screen is laid out: the scene places itself over the spacer
     art.show(id, this.el, this.anchor);
+  }
+
+  /** Nothing is coming: one line in place of the rotating ones, and only the way back. */
+  stuck(text: string): void {
+    clearInterval(this.timer);
+    this.line.textContent = text;
+    this.line.classList.add('in');
+    this.bar.style.width = '0%';
   }
 
   /** 0 to 1; never goes back, even when more to load turns up. */
