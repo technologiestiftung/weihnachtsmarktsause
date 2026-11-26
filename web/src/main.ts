@@ -179,9 +179,9 @@ const sights = new SightLayer(scene, world, hud.overview);
 // Wait behind the menu where every game starts: the tiles it needs stream
 // in while the start page is read, so start has little left to load. The
 // menu itself needs none of them.
-const [sx, sz] = startPoint(hud.overview, world) ?? [world.spawnPoint.x, world.spawnPoint.z];
-player.pos.set(sx, 0, sz);
-player.yaw = Math.PI * 0.25;
+const start = startPoint(hud.overview, world);
+player.pos.set(start?.x ?? world.spawnPoint.x, 0, start?.z ?? world.spawnPoint.z);
+player.yaw = start?.yaw ?? Math.PI * 0.25;
 const touchDevice = isTouchDevice();
 // The data sources under the game, word for word as on the start page
 // (menu.sources) but without its link to the market data. A phone has no
@@ -235,15 +235,15 @@ async function choose(c: Choice): Promise<void> {
     // without the start in this build there is no fair start: unranked, where you are
     const at = g.startAt();
     if (at) {
-      await world.ensure(at[0], at[1]);
+      await world.ensure(at.x, at.z);
       if (backOut()) return;
-      player.spawn(at[0], at[1]);
+      player.spawn(at.x, at.z);
     }
     g.prepare();
     await cityAround();
     // again, now the whole neighbourhood is in: with only the one tile, the
     // free spot next to it can sit on ground that had no height yet
-    if (at) player.spawn(at[0], at[1]);
+    if (at) player.spawn(at.x, at.z);
     if (backOut()) return;
     // after a quick load the click on start still counts as the gesture
     // pointer lock needs; after a long one, a click on the city takes the mouse

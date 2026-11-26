@@ -76,16 +76,33 @@ export interface GameHost {
 const GAME_PACE = 1.6;
 
 /**
- * Every game starts here: central, but not on top of a market - the
- * nearest, at the Gendarmenmarkt, is 800 m off, and four are within 1.1 km.
- * Always the same, so every run on the board had the same chance.
+ * Every game starts here: in the Tiergarten, `back` metres west of the
+ * Brandenburger Tor on the axis of the Straße des 17. Juni, at the gate's
+ * height (Quadriga included), looking east through it along Unter den
+ * Linden (`bearing`, degrees clockwise from north). Always the same, so
+ * every run on the board had the same chance.
  */
-const START_STATION = 'Friedrichstraße';
+const START = { sight: 'Brandenburger Tor', back: 250, height: 24, bearing: 85 };
+
+export interface Start {
+  x: number;
+  z: number;
+  /** The player's yaw: the camera looks along (-sin yaw, -cos yaw). */
+  yaw: number;
+  /** Metres above the ground. */
+  height: number;
+}
 
 /** Where every game starts; null where this build does not cover it. */
-export function startPoint(overview: Overview, world: World): [number, number] | null {
-  const s = overview.stations.find((st) => st.name === START_STATION);
-  return s && world.covers(s.x, s.z) ? [s.x, s.z] : null;
+export function startPoint(overview: Overview, world: World): Start | null {
+  const gate = overview.landmarks.find((l) => l.name === START.sight);
+  if (!gate) return null;
+  const b = (START.bearing * Math.PI) / 180;
+  // east is +x, north is -z
+  const dx = Math.sin(b), dz = -Math.cos(b);
+  const x = gate.x - dx * START.back, z = gate.z - dz * START.back;
+  if (!world.covers(x, z)) return null;
+  return { x, z, yaw: Math.atan2(-dx, -dz), height: START.height };
 }
 
 /** Every target's colour, warm gold; the pin itself is the star (public/star.png). */
@@ -390,7 +407,7 @@ export class Game {
   }
 
   /** The start; null where this build does not cover it. */
-  startAt(): [number, number] | null {
+  startAt(): Start | null {
     return startPoint(this.host.hud.overview, this.host.world);
   }
 
@@ -407,7 +424,15 @@ export class Game {
     el('countKeys').replaceChildren(...controls(this.info.id, isTouchDevice()).slice(0, 2));
     el('countKeys').classList.add('on');
     this.render();
-    this.host.player.setSleigh(true);
+    const p = this.host.player;
+    p.setSleigh(true);
+    // at the start: at the gate's height, facing Unter den Linden
+    const at = this.startAt();
+    if (at) {
+      p.pos.y = this.host.world.height(p.pos.x, p.pos.z) + at.height;
+      p.yaw = at.yaw;
+      p.pitch = 0;
+    }
     this.host.setNight(1);
     this.host.scene.add(this.snow.points);
   }
@@ -534,8 +559,6 @@ export class Game {
   private stationBoost(): void {
     const p = this.host.player;
     const REACH = 12;
-    // the start is at a station (Friedrichstraße): leaving it is no boost
-    if (this.time < 1) return;
     if (p.pos.y - this.host.world.height(p.pos.x, p.pos.z) > STATION_BEAM.height + 10) return;
     for (const st of this.host.hud.overview.stations) {
       if (Math.abs(st.x - p.pos.x) > REACH || Math.abs(st.z - p.pos.z) > REACH) continue;

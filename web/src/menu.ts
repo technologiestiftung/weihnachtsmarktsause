@@ -9,7 +9,7 @@ import { art } from './loadingart';
  * The start menu, on a purple night with a lit tree in falling snow: start and high scores, with a
  * game's result above them.
  *
- * Every game starts at the same place (games.ts, START_STATION), so runs compare
+ * Every game starts at the same place (games.ts, START), so runs compare
  * for the whole season: start is the only choice there is.
  */
 

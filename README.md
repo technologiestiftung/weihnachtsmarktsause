@@ -40,16 +40,17 @@ quality tier (`web/src/quality.ts`; `?quality=low|high` to choose).
 
 ## The game
 
-* **One start.** Every game starts at Friedrichstraße station, so runs
-  compare for the whole season and the high scores stay put.
-* **Markets reached is the score.** Each market gives a few seconds back on
-  the clock; the board ranks by markets reached.
-* **Start menu.** Start, high scores and settings over falling snow. The
-  settings (also reachable from the pause screen) hold the language, sound
-  on/off with master, music and effects volume, and a tab with the
-  controls. Music and effects are synthesised (`web/src/sfx.ts`).
-* **German first**, with English in the settings (or `?lang=en`). Strings
-  live in `web/src/i18n.ts`.
+* **One start.** Every game starts 250 m west of the Brandenburger Tor at
+  the gate's height, looking east along Unter den Linden, so runs compare
+  for the whole season and the high scores stay put.
+* **Markets reached is the score.** The board ranks by markets reached.
+  Flying through a sight's beam puts 5 seconds back on the clock (once per
+  sight and game); a station's beam gives a burst of speed.
+* **Start menu.** Start and high scores over falling snow, with the
+  Weihnachtsmarkt-Finder's round buttons for language, snow and music (also
+  on the pause screen). Music and effects are synthesised (`web/src/sfx.ts`).
+* **German first**, with English on the language button (or `?lang=en`).
+  Strings live in `web/src/i18n.ts`.
 * **The map** is of all of Berlin: district outlines, S/U/main-line
   stations, landmarks, and under it the district you are over and the
   nearest landmark or station. `npm run data:overview` rebuilds

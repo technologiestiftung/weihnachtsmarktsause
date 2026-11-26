@@ -22,7 +22,7 @@ const FULL_OUT = LOW ? 540 : 1100;
 const COARSE_IN = FULL_IN + 600;
 const COARSE_OUT = COARSE_IN + 300;
 /** A game starts once the full tiles this close are in; the rest streams in
- *  during the countdown. At the start, Friedrichstraße, that is 2 of 6. */
+ *  during the countdown. */
 const START_IN = 400;
 /** How far up a surface may be and still be stepped onto, metres. */
 const STEP_UP = 1.0;

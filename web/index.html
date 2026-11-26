@@ -103,7 +103,7 @@
   #menuContact { margin-top: 6px; }
   /* a line of its own under the logos, which then centre on theirs */
   #logosNote { flex-basis: 100%; max-width: none; margin-top: 10px; }
-  #boot h2 a, #menuCredits a, #menuContact a, #logosNote a { color: inherit; pointer-events: auto; }
+  #menuCredits a, #menuContact a, #logosNote a { color: inherit; pointer-events: auto; }
   /* imprint and privacy: small and quiet, under the menu */
   #legal { display: none; justify-content: center; gap: 14px; margin-top: 10px; font-size: 12px; }
   #boot.ready #legal { display: flex; }
@@ -331,9 +331,8 @@
     .pop.record { font-size: 22px; }
   }
   /* as the Weihnachtsmarkt-Finder's title: Clan Bold, 24 px, as written, and its star */
-  #boot h1 { font-size: 24px; margin: 0 0 6px; font-weight: 700; overflow-wrap: anywhere; }
+  #boot h1 { font-size: 24px; margin: 0 0 28px; font-weight: 700; overflow-wrap: anywhere; }
   #boot h1 img { display: inline-block; width: 40px; height: auto; margin-left: 16px; vertical-align: -6px; }
-  #boot h2 { font-size: 14px; margin: 0 0 26px; color: var(--dim); font-weight: 400; }
   #bar { height: 3px; background: rgba(29,35,48,.12); border-radius: 2px; overflow: hidden; }
   #bar div { height: 100%; width: 0%; background: var(--accent); transition: width .18s ease; }
   #bootmsg { font-size: 12px; color: var(--dim); margin-top: 12px; min-height: 1.4em; }
@@ -349,10 +348,12 @@
   #glArt.none { height: 0; margin: 0; }
   @media (max-height: 860px) { #glArt { height: 180px; } }
   @media (max-height: 660px) { #glArt { height: 120px; } }
-  #glBack { display: block; margin: 18px auto 0; padding: 10px 22px; border: 1px solid rgba(255,255,255,.22);
-    border-radius: 8px; background: rgba(255,255,255,.08); cursor: pointer; color: #fff;
-    font: inherit; font-size: 14px; transition: background .15s, border-color .15s; }
-  #glBack:hover, #glBack:focus-visible { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.4); outline: none; }
+  /* as the start menu's buttons (#mainBtns): the same box, in the off-white the Bestenliste button
+     shows (its 4% tint over the snowfield), the gold edge and the lift on hover */
+  #glBack { display: block; width: min(280px, 100%); margin: 18px auto 0; padding: 12px 18px;
+    border: 1px solid rgba(29,35,48,.22); border-radius: 8px; background: #eaeef2; color: var(--navy);
+    font: inherit; font-size: 14px; cursor: pointer; transition: border-color .15s, transform .15s, background .15s; }
+  #glBack:hover, #glBack:focus-visible { border-color: var(--accent); transform: translateY(-1px); outline: none; }
   #glTrack { width: min(320px, 80vw); height: 6px; margin: 0 auto; border-radius: 99px;
     background: rgba(255,255,255,.12); overflow: hidden; }
   #glBar { height: 100%; width: 0; border-radius: inherit; background: var(--gl-accent);
@@ -401,7 +402,7 @@
 <div id="boot"><div class="inner">
   <div id="bootArt"></div>
   <div id="ground">
-  <h1><span data-i18n="page.title">Berliner Weihnachtsmarkt-Sause</span><img src="favicon.png" alt=""></h1><h2 data-i18n-html="boot.sub">basierend auf Berlins offenen Weihnachtsmarktdaten</h2>
+  <h1><span data-i18n="page.title">Berliner Weihnachtsmarkt-Sause</span><img src="favicon.png" alt=""></h1>
   <div id="loading">
     <div id="bar"><div></div></div>
     <div id="bootmsg">starte…</div>

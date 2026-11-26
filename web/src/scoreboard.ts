@@ -114,7 +114,7 @@ export class Scoreboard {
       gap.append(h('td', '', '…'));
       table.append(gap, row(b.me));
     }
-    if (b.local) return [table, ...note];
-    return [table, h('p', 'dim', t('board.players', { n: b.players }))];
+    // the top ten and, further down, your own place; not how many play
+    return [table, ...note];
   }
 }
