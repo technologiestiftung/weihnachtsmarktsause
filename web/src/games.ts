@@ -22,11 +22,10 @@ import type { World } from './world';
 /** The modes; their texts are in i18n.ts under mode.<id>.* */
 export interface ModeInfo {
   id: string;
-  emoji: string;
 }
 
 export const MODE_INFO: ModeInfo[] = [
-  { id: 'markets', emoji: '🎅' },
+  { id: 'markets' },
 ];
 
 /**
@@ -85,9 +84,19 @@ export function startPoint(overview: Overview, world: World): [number, number] |
   return s && world.covers(s.x, s.z) ? [s.x, s.z] : null;
 }
 
-/** Every target's pin: a tree in warm gold. */
-const PIN = '🎄';
+/** Every target's colour, warm gold; the pin itself is the star (public/star.png). */
 const PIN_COLOUR = '#e8b23a';
+/** The star of the pins and the pop-ups, from public/ like the data. */
+const STAR = 'star.png';
+
+/** The star as a picture in a line of text. */
+function starImg(): HTMLImageElement {
+  const img = new Image();
+  img.src = STAR;
+  img.className = 'star';
+  img.alt = '';
+  return img;
+}
 
 interface Spot {
   x: number;
@@ -115,40 +124,55 @@ function spot(p: RawPoint, reach: number): Spot {
 
 /* --- beacons --------------------------------------------------------------- */
 
-const iconCache = new Map<string, THREE.Texture>();
+/** A five-pointed star's outline, point up: outer radius 1, inner `inner`. */
+function starPoints(inner: number): [number, number][] {
+  return Array.from({ length: 10 }, (_, i) => {
+    const a = (i / 10) * Math.PI * 2;
+    const r = i % 2 ? inner : 1;
+    return [Math.sin(a) * r, Math.cos(a) * r] as [number, number];
+  });
+}
 
-function icon(emoji: string, colour: string): THREE.Texture {
-  const key = emoji + colour;
-  let t = iconCache.get(key);
-  if (t) return t;
+let starTex: THREE.Texture | null = null;
+
+/** The pin: the star with a soft white rim, so its gold holds against the
+ *  night; its bottom is on the spot. Blank until the picture has loaded. */
+function star(): THREE.Texture {
+  if (starTex) return starTex;
   const c = document.createElement('canvas');
   c.width = c.height = 128;
-  const g = c.getContext('2d')!;
-  g.fillStyle = colour;
-  g.beginPath();
-  g.arc(64, 58, 50, 0, Math.PI * 2);
-  g.fill();
-  // a pointer under the disc, like a map pin
-  g.beginPath();
-  g.moveTo(44, 96); g.lineTo(84, 96); g.lineTo(64, 124); g.closePath();
-  g.fill();
-  g.lineWidth = 6;
-  g.strokeStyle = 'rgba(255,255,255,.9)';
-  g.beginPath();
-  g.arc(64, 58, 50, 0, Math.PI * 2);
-  g.stroke();
-  g.font = '60px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.fillText(emoji, 64, 62);
-  t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  iconCache.set(key, t);
-  return t;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const img = new Image();
+  img.onload = () => {
+    const g = c.getContext('2d')!;
+    g.shadowColor = 'rgba(255,255,255,.95)';
+    g.shadowBlur = 8;
+    // twice: one pass of the blur alone is too faint a rim
+    g.drawImage(img, 8, 8, 112, 112);
+    g.drawImage(img, 8, 8, 112, 112);
+    tex.needsUpdate = true;
+  };
+  img.src = STAR;
+  return starTex = tex;
+}
+
+/** A column of light one unit tall with the star for its cross-section:
+ *  just the walls, open at both ends. */
+function starColumn(): THREE.BufferGeometry {
+  const pts = starPoints(0.45);
+  const pos: number[] = [];
+  pts.forEach(([x0, z0], i) => {
+    const [x1, z1] = pts[(i + 1) % pts.length];
+    pos.push(x0, 0, z0, x1, 0, z1, x1, 1, z1, x0, 0, z0, x1, 1, z1, x0, 1, z0);
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  return geo;
 }
 
 const SCRATCH = new THREE.Vector3();
-const COLUMN = new THREE.CylinderGeometry(1, 1, 1, 12, 1, true).translate(0, 0.5, 0);
+const COLUMN = starColumn();
 
 /** A pin over the target and a column of light up into the sky, with the
  *  market's name above and how far it is above that. Pins keep their size on
@@ -162,9 +186,9 @@ class Beacon {
   private readonly label: Label;
   private readonly pinHeight: number;
 
-  constructor(emoji: string, colour: string, height: number, width: number, name: string) {
+  constructor(colour: string, height: number, width: number, name: string) {
     this.pin = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: icon(emoji, colour), depthTest: false, depthWrite: false,
+      map: star(), depthTest: false, depthWrite: false,
       transparent: true, sizeAttenuation: false, fog: false,
     }));
     this.pin.renderOrder = 30;
@@ -321,7 +345,7 @@ export class Game {
   private readonly beaconCount = 10;
   private readonly beaconRange = 5000;
   private readonly beaconHeight = 320;
-  private readonly beaconWidth = 5;
+  private readonly beaconWidth = 8;
 
   private beaten = false;
   private countdown = 3.4;
@@ -425,18 +449,18 @@ export class Game {
     return best;
   }
 
-  private banner(text: string, seconds = 2.2): void {
+  private banner(text: string, seconds = 2.2, withStar = false): void {
     const b = el('banner');
-    b.textContent = text;
+    b.replaceChildren(...(withStar ? [starImg(), text] : [text]));
     b.classList.add('on');
     this.bannerTimer = seconds;
   }
 
   /** Text that jumps up from the middle of the screen and fades. */
-  private popup(text: string, cls = '', delay = 0): void {
+  private popup(text: string, cls = '', delay = 0, withStar = false): void {
     const p = document.createElement('div');
     p.className = `pop ${cls}`;
-    p.textContent = text;
+    p.replaceChildren(...(withStar ? [starImg(), text] : [text]));
     p.style.animationDelay = `${delay}s`;
     p.addEventListener('animationend', () => p.remove());
     el('pops').append(p);
@@ -456,7 +480,7 @@ export class Game {
    */
   private award(x: number, y: number, z: number): void {
     this.count++;
-    this.popup(`🎁 ${this.count}`, 'big');
+    this.popup(String(this.count), 'big', 0, true);
     const secs = Math.max(1, Math.round(this.timeBonus * Math.max(0.4, 1 - this.count * 0.04)));
     this.limit += secs;
     this.popup(t('game.time', { n: secs }), 'time', 0.16);
@@ -601,7 +625,7 @@ export class Game {
     const p = this.host.player;
     this.award(p.pos.x, p.pos.y, p.pos.z);
     this.burst(p.pos.x, p.pos.y, p.pos.z, [0xc8102e, 0x2f8f4e, 0x2a62c9, 0xe8b23a], 10, 0.7);
-    this.banner(this.text('hit', { name: s.n }));
+    this.banner(this.text('hit', { name: s.n }), undefined, true);
   }
 
   private end(): void {
@@ -630,7 +654,7 @@ export class Game {
     for (const [, s] of near) {
       let b = this.beacons.get(s);
       if (!b) {
-        b = new Beacon(PIN, PIN_COLOUR, this.beaconHeight, this.beaconWidth, s.n);
+        b = new Beacon(PIN_COLOUR, this.beaconHeight, this.beaconWidth, s.n);
         this.beacons.set(s, b);
         this.group.add(b.group);
       }

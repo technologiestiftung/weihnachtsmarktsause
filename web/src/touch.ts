@@ -15,6 +15,7 @@ export function isTouchDevice(): boolean {
 const LOOK = 2.4;
 
 interface TouchButton {
+  /** An icon's SVG markup. */
   label: string;
   code: string;
 }
@@ -30,7 +31,7 @@ export class TouchControls {
     const bar = document.getElementById('touchButtons')!;
     for (const b of buttons) {
       const el = document.createElement('button');
-      el.textContent = b.label;
+      el.innerHTML = b.label;
       el.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         const code = b.code;

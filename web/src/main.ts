@@ -13,7 +13,7 @@ import { GameLoader } from './loading';
 import { bestCount } from './scores';
 import { Menu, type Choice } from './menu';
 import { applyStatic, onLang, t } from './i18n';
-import { Settings } from './settings';
+import { CAMERA, PAUSE, Settings } from './settings';
 import { art } from './loadingart';
 import { unlockAudio } from './sfx';
 import { TouchControls, isTouchDevice } from './touch';
@@ -186,7 +186,6 @@ let gameChoice: Choice | null = null;
 let starting = false;
 /** A game on hold: the clock, the rules and the player all wait. */
 let paused = false;
-let pausedAt = 0;
 
 async function choose(c: Choice): Promise<void> {
   keys.clear();
@@ -290,7 +289,6 @@ function setPaused(on: boolean): void {
   document.body.classList.toggle('paused', on);
   keys.clear();
   if (on) {
-    pausedAt = performance.now();
     pauseInfo();
     if (document.pointerLockElement) document.exitPointerLock();
   } else {
@@ -302,7 +300,7 @@ const pauseInfo = () => { document.getElementById('pauseInfo')!.textContent = ga
 // the language can change in the settings, over the pause screen
 onLang(() => { if (paused) pauseInfo(); });
 
-/** Pause a running game; Esc, P, the touch ⏸, the tab going out of sight. */
+/** Pause a running game; Esc, P, the touch pause button, the tab going out of sight. */
 function pause(): void {
   if (game && game.state !== 'over' && !menu.open) setPaused(true);
 }
@@ -337,10 +335,9 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space') e.preventDefault();
   if (keys.has(e.code)) return;
   if (game && e.code === 'Escape') {
-    // leaving pointer lock with Esc pauses already; the same Esc arriving
-    // a moment later must not resume
-    if (!paused) pause();
-    else if (performance.now() - pausedAt > 300) resume();
+    // Esc only pauses: resuming on it would take the mouse while the key is
+    // down, and its release would let go of it again - and pause
+    pause();
     return;
   }
   if (menu.open || paused) return;
@@ -393,8 +390,8 @@ addEventListener('mousemove', (e) => {
 });
 
 const touch = touchDevice ? new TouchControls(look, [
-  { label: '⏸', code: 'Escape' },
-  { label: '🎥', code: 'KeyC' },
+  { label: PAUSE, code: 'Escape' },
+  { label: CAMERA, code: 'KeyC' },
 ]) : null;
 let touchShown = true;
 

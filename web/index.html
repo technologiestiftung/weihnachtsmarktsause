@@ -152,7 +152,6 @@
     font-size: 11px; padding: 8px 8px 7px; cursor: pointer; white-space: nowrap; }
   .modal .tabs button:hover, .modal .tabs button:focus-visible { color: var(--ui); outline: none; }
   .modal .tabs button.on { color: var(--ui); border-bottom-color: var(--accent); }
-  .modal .tabs .te { font-size: 17px; line-height: 1; }
   /* five titles don't fit: the open tab names its game, the others show their emoji */
   #board .tabs button:not(.on) .tt { display: none; }
   .modal .tabbody { min-height: 220px; }
@@ -197,6 +196,7 @@
     border-radius: 6px; border: 1px solid rgba(255,255,255,.2); border-bottom-width: 3px;
     background: rgba(255,255,255,.1); color: #fff; font: 600 11px system-ui, sans-serif; text-align: center; }
   .keys svg.mouse { width: 17px; height: 25px; margin-left: 4px; vertical-align: middle; color: #fff; }
+  .keys svg.icon { width: 22px; height: 22px; margin-left: 4px; vertical-align: middle; color: #fff; }
   .keys .pairs { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; }
   .keys .pairs kbd, .keys .pairs svg.mouse { margin: 0 6px 0 0; }
   .keys .tip { grid-column: 1 / -1; margin-top: 4px; color: var(--accent); }
@@ -221,6 +221,8 @@
   .pop { white-space: nowrap; font-weight: 700; font-size: 18px; color: #fff; line-height: 1.15;
     text-shadow: 0 2px 8px rgba(0,0,0,.7); animation: pop 1.3s ease-out both; }
   .pop.big { font-size: 34px; color: var(--accent); }
+  /* the star (public/star.png) in front of a hit's count or name */
+  .pop img.star, #banner img.star { height: .9em; width: auto; vertical-align: -.08em; margin-right: .25em; }
   .pop.big.gold { font-size: 40px; }
   .pop.time { color: #6ee7a0; }
   .pop.dim { color: var(--dim); font-size: 13px; font-weight: 500; }
@@ -275,6 +277,7 @@
     background: rgba(14,16,21,.55); color: var(--ui); font-size: 22px; touch-action: none;
     -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  #touchButtons button svg { width: 26px; height: 26px; vertical-align: middle; }
   #touchButtons button:active { background: rgba(63,191,111,.5); }
   body.touch #stats { display: none; }
   body.touch #place, body.touch #maplabel { display: none; }
@@ -346,7 +349,6 @@
     background: rgba(14,16,21,.92); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; }
   #pause h3 { margin: 0 0 6px; font-size: 24px; letter-spacing: .12em; font-weight: 600; }
   #pause p { margin: 4px 0; font-size: 12px; color: #c9c6bf; }
-  #pause p.note { font-size: 10px; color: var(--dim); margin-top: 12px; }
   #pause .rb { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
   #pause .rb button { padding: 12px 22px; font-size: 13px; }
   #hint { position: fixed; left: 50%; bottom: 26%; transform: translateX(-50%); z-index: 5;
@@ -429,7 +431,6 @@
     <button id="pauseRestart" class="alt" data-i18n="pause.restart">Neu starten</button>
     <button id="pauseExit" class="alt" data-i18n="pause.exit">Spiel beenden</button>
   </div>
-  <p class="note" data-i18n-html="pause.note"></p>
 </div></div>
 <div id="rush"></div>
 <div id="flash"></div>

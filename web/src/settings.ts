@@ -65,11 +65,11 @@ export class Settings {
     const body = h('div', 'tabbody');
     body.setAttribute('role', 'tabpanel');
     const draw = () => body.replaceChildren(...(this.tab === 'general' ? this.general() : this.controls()));
-    for (const [id, emoji] of [['general', '⚙️'], ['controls', '🎮']] as const) {
+    for (const id of ['general', 'controls'] as const) {
       const b = h('button', id === this.tab ? 'on' : '');
       b.setAttribute('role', 'tab');
       b.setAttribute('aria-selected', String(id === this.tab));
-      b.append(h('span', 'te', emoji), h('span', 'tt', t(`settings.${id}`)));
+      b.append(h('span', 'tt', t(`settings.${id}`)));
       b.addEventListener('click', () => {
         this.tab = id;
         for (const o of tabs.children) {
@@ -146,7 +146,9 @@ export class Settings {
   }
 }
 
-const MOUSE = `<svg class="mouse" viewBox="0 0 16 24" aria-label="🖱" role="img">
+/** Drawn icons in place of emojis: the mouse, a fingertip on glass, pause,
+ *  and the camera of the touch button. */
+const MOUSE = `<svg class="mouse" viewBox="0 0 16 24" aria-hidden="true">
   <rect x="1" y="1" width="14" height="22" rx="7" fill="rgba(255,255,255,.1)" stroke="currentColor" stroke-width="1.5"/>
   <path d="M8 1v8M1.4 9h13.2" stroke="currentColor" stroke-width="1.2" opacity=".55"/>
   <rect x="7" y="4" width="2" height="3.4" rx="1" fill="currentColor"/>
@@ -204,11 +206,22 @@ function cells(words: string[], what: string): HTMLElement[] {
   return [k, label];
 }
 
-/** One key cap, or the mouse drawn as a mouse. */
+export const FINGER = `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
+  <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="8" opacity=".5"/>
+</svg>`;
+export const PAUSE = `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+  <rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>
+</svg>`;
+export const CAMERA = `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8">
+  <rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8.5 7l1.5-2.5h4L15.5 7"/><circle cx="12" cy="13.5" r="3.5"/>
+</svg>`;
+const ICONS: Record<string, string> = { mouse: MOUSE, finger: FINGER, pause: PAUSE };
+
+/** One key cap, or a mouse, finger or pause drawn as one. */
 function key(word: string): Element {
-  if (word === 'mouse') {
+  if (ICONS[word]) {
     const t = document.createElement('template');
-    t.innerHTML = MOUSE;
+    t.innerHTML = ICONS[word];
     return t.content.firstElementChild!;
   }
   const kbd = document.createElement('kbd');
