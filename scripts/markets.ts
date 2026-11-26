@@ -48,7 +48,9 @@ function utm33(lon: number, lat: number): [number, number] {
 
 /* --- CSV: quoted fields may hold commas, quotes ("") and line breaks --------- */
 
+/** Comma- or, from a German spreadsheet, semicolon-separated: whichever the header uses. */
 function parseCsv(text: string): string[][] {
+  const sep = text.slice(0, text.indexOf('\n')).includes(';') ? ';' : ',';
   const rows: string[][] = [];
   let row: string[] = [], field = '', quoted = false;
   for (let i = 0; i < text.length; i++) {
@@ -58,7 +60,7 @@ function parseCsv(text: string): string[][] {
       else if (ch === '"') quoted = false;
       else field += ch;
     } else if (ch === '"') quoted = true;
-    else if (ch === ',') { row.push(field); field = ''; }
+    else if (ch === sep) { row.push(field); field = ''; }
     else if (ch === '\n' || ch === '\r') {
       if (ch === '\r' && text[i + 1] === '\n') i++;
       row.push(field); rows.push(row); row = []; field = '';
@@ -74,7 +76,7 @@ const col = Object.fromEntries(head.map((h, i) => [h, i]));
 const points: [number, number, string, string][] = [];
 let skipped = 0;
 for (const r of rows) {
-  if (r[col.ignore] === '1' || !r[col.plz_ort].endsWith('Berlin')) { skipped++; continue; }
+  if (r[col.ignore] === '1' || !/berlin$/i.test(r[col.plz_ort].trim())) { skipped++; continue; }
   const [e, n] = utm33(Number(r[col.lng]), Number(r[col.lat]));
   const round = (v: number) => Math.round(v * 10) / 10;
   points.push([round(e - ORIGIN.e), round(ORIGIN.n - n), r[col.shortname] || r[col.name], `${r[col.von]} – ${r[col.bis]}`]);
