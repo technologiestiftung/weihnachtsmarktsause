@@ -92,9 +92,9 @@ const de = {
   'game.beaten': 'Bestwert geknackt!',
   'mode.markets.title': 'Weihnachtsmarkt-Sause',
   'mode.markets.blurb': 'Flieg mit Santas Schlitten über die Stadt und wirf über möglichst vielen Weihnachtsmärkten Geschenke ab – in {dur}.',
-  'mode.markets.intro': 'Entdecke Berlins Weihnachtsmärkte aus luftiger Perspektive. Mit unserem neuen 3D-Spiel kannst du '
+  'mode.markets.intro': 'Entdecke Berlins Weihnachtsmärkte aus luftiger Perspektive. Mit diesem 3D-Spiel kannst du '
     + 'über die Berliner Weihnachtsmärkte fliegen und so viele Märkte wie möglich beschenken. '
-    + 'Wer schafft es, in {dur} die meisten Märkte zu beschenken?',
+    + 'Wer schafft es, in {dur} die meisten Märkte zu besuchen?',
   'mode.markets.source': 'Weihnachtsmärkte 2026: SenWEB (CC BY)',
   'mode.markets.score': 'Weihnachtsmärkte beschenkt',
   'mode.markets.unit': '{n} {n|Markt|Märkte}',
