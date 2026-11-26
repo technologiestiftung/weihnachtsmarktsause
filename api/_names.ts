@@ -15,15 +15,12 @@ import ldnoobw from 'naughty-words';
  * match anywhere in the name; shorter ones only as a whole word of it (split
  * at spaces, - _ ., digits and capitals) or its plural, as they hide in
  * harmless names: "Kanal", "Hitchcock", "Analena", "Sussex" stay allowed.
- * ALLOWED takes back what the lists hold that is harmless here - in a
- * Christmas game above all - or hides in a harmless word.
  *
  * It catches the obvious, not the inventive; a name that gets through can
  * still be hidden on the board (players.hidden).
  */
 
 const LONG = 6;
-const ALLOWED = ['schlitten', 'glocke', 'esel', 'therapist'];
 
 /** Lower case, accents off, ß as ss. */
 function fold(s: string): string {
@@ -49,13 +46,10 @@ function parts(name: string): string[] {
   return [...split(name), ...split(unleet(name))].map(fold).filter(Boolean);
 }
 
-/** The name with the ALLOWED words taken out. */
-const allow = (s: string) => ALLOWED.reduce((t, w) => t.replaceAll(w, ' '), s);
-
 /** True if the board should refuse this name. */
 export function blockedName(name: string): boolean {
-  const whole = allow(compact(name));
-  if (long.some((w) => whole.includes(w) || allow(unleet(compact(name))).includes(w))) return true;
+  const whole = compact(name);
+  if (long.some((w) => whole.includes(w) || unleet(whole).includes(w))) return true;
   const plural = (w: string) => w.replace(/(e?s|e|n)$/, '');
-  return parts(name).some((w) => !ALLOWED.includes(w) && (short.has(w) || (plural(w).length > 2 && short.has(plural(w)))));
+  return parts(name).some((w) => short.has(w) || (plural(w).length > 2 && short.has(plural(w))));
 }

@@ -1,11 +1,11 @@
 import { MODE_INFO, modeText } from './games';
 import { lang, onLang, t } from './i18n';
-import { cleanName, fetchBoard, playerName, setPlayerName, type Board } from './ranking';
+import { fetchBoard, playerName, type Board } from './ranking';
 import { runsOf, stats } from './scores';
 
 /**
  * The high scores, in a box over the start screen: the course on the shared
- * board and your own record, and above them the name you play under.
+ * board and your own record. The nickname is given after a game (menu.ts).
  */
 
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ''): HTMLElementTagNameMap[K] {
@@ -59,44 +59,9 @@ export class Scoreboard {
     box.setAttribute('aria-labelledby', title.id);
 
     this.body = h('div', 'tabbody');
-    box.append(x, title, this.nameForm(), this.body, h('p', 'src', t('board.privacy')));
+    box.append(x, title, this.body, h('p', 'src', t('board.privacy')));
     this.root.replaceChildren(box);
     this.drawTab();
-  }
-
-  /** The name you play under: take one, or change it. */
-  private nameForm(): HTMLElement {
-    const form = h('form', 'name');
-    const label = h('label', '', t('board.name'));
-    const input = h('input', '');
-    input.id = 'boardName';
-    label.htmlFor = input.id;
-    input.type = 'text';
-    input.maxLength = 20;
-    input.setAttribute('autocomplete', 'nickname');
-    input.spellcheck = false;
-    input.placeholder = t('board.namePh');
-    input.value = playerName() ?? '';
-    const save = h('button', '', t('board.save'));
-    const msg = h('p', 'msg');
-    const row = h('div', 'row');
-    row.append(input, save);
-    form.append(label, row, msg);
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (cleanName(input.value) === playerName()) return;
-      save.disabled = true;
-      msg.textContent = '…';
-      const r = await setPlayerName(input.value);
-      save.disabled = false;
-      msg.textContent = t(`board.${r}`);
-      msg.classList.toggle('bad', r !== 'ok' && r !== 'local');
-      if (r === 'ok' || r === 'local') {
-        input.value = playerName() ?? '';
-        this.drawTab();
-      }
-    });
-    return form;
   }
 
   /** The course on the board, then your own numbers. */
@@ -150,8 +115,6 @@ export class Scoreboard {
       table.append(gap, row(b.me));
     }
     if (b.local) return [table, ...note];
-    const out: HTMLElement[] = [table, h('p', 'dim', t('board.players', { n: b.players }))];
-    if (!playerName()) out.push(h('p', 'dim', t('board.joinHint')));
-    return out;
+    return [table, h('p', 'dim', t('board.players', { n: b.players }))];
   }
 }

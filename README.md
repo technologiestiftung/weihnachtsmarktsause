@@ -71,6 +71,8 @@ city are listed; those in Brandenburg (Potsdam, Bernau, Königs Wusterhausen,
 The high scores live in a Postgres database (schema`weihnachtsmarktsause`), 
 reached only by the small API in `api/`, which holds the
 credentials and checks each run. This API accepts runs for the Sause only.
+A run is kept, in the browser and on the board, only once the player enters
+a name on the result screen after the game.
 
 ## Performance
 

@@ -89,8 +89,10 @@ export class Settings {
   private general(): HTMLElement[] {
     const langRow = h('div', 'set');
     const seg = h('div', 'seg');
+    // each language in its own words, so it can be found from the other
+    const names: Record<Lang, string> = { de: 'Deutsch', en: 'English' };
     for (const l of ['de', 'en'] as Lang[]) {
-      const b = h('button', l === lang ? 'on' : '', l.toUpperCase());
+      const b = h('button', l === lang ? 'on' : '', names[l]);
       b.setAttribute('aria-pressed', String(l === lang));
       b.addEventListener('click', () => setLang(l));
       seg.append(b);
